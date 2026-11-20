@@ -495,6 +495,160 @@ def generate_fictional_pdf(output_path: Path | None = None) -> Path:
     return output_path
 
 
+def generate_candidate_y_pdf(output_path: Path | None = None) -> Path:
+    """Generate synthetic Form 26 PDF for Candidate Y (Kiran Rao)."""
+    if output_path is None:
+        script_dir = Path(__file__).resolve().parent
+        workspace_root = script_dir.parent.parent.parent
+        output_path = workspace_root / "fixtures" / "fictional" / "candidate_y_affidavit.pdf"
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    a4_width, a4_height = 595, 842
+    content_rect = pymupdf.Rect(36, 36, a4_width - 36, a4_height - 36)
+
+    doc = pymupdf.open()
+
+    p1 = """
+    <div class="banner">FICTIONAL SAMPLE — NOT A REAL CANDIDATE</div>
+    <div class="header-title">FORM 26 (See Rule 4A)</div>
+    <div class="header-subtitle">AFFIDAVIT TO BE FILED BY THE CANDIDATE BEFORE THE RETURNING OFFICER</div>
+    <div class="section-title">ELECTION & CANDIDATE PARTICULARS</div>
+    <table class="info-table">
+        <tr><th style="width: 32%;">Election For</th><td>Telangana Legislative Assembly General Election 2024 (Fictional Sample)</td></tr>
+        <tr><th>Constituency</th><td><strong>Fictional Constituency, Telangana</strong> (Constituency Code: FC-01)</td></tr>
+        <tr><th>Candidate Name</th><td><span class="highlight">Kiran Rao (Fictional Sample)</span></td></tr>
+        <tr><th>Party Affiliation</th><td><strong>Civic Reform Front — Fictional</strong></td></tr>
+        <tr><th>Filing Date</th><td><strong>2024-04-16</strong></td></tr>
+    </table>
+    <div class="section-title">ITEM (10) DETAILS OF HIGHEST EDUCATIONAL QUALIFICATION</div>
+    <table class="info-table">
+        <tr><th style="width: 32%;">Highest Degree</th><td><strong>B.Tech in Computer Science</strong></td></tr>
+        <tr><th>College / University</th><td>NIT Warangal</td></tr>
+        <tr><th>Year of Completion</th><td>2014</td></tr>
+    </table>
+    <div class="footer-note">Form 26 Affidavit — Kiran Rao (Fictional Sample) | Page 1 of 4</div>
+    """
+
+    p2 = """
+    <div class="banner">FICTIONAL SAMPLE — NOT A REAL CANDIDATE</div>
+    <div class="section-title">ITEM (7) DETAILS OF MOVABLE ASSETS</div>
+    <table class="info-table">
+        <tr><th>Description</th><th class="text-right">Self</th></tr>
+        <tr><td>(i) Cash in hand</td><td class="text-right">₹50,000</td></tr>
+        <tr><td>(ii) Bank Deposits</td><td class="text-right">₹8,00,000</td></tr>
+        <tr><td>(vi) Motor Vehicles</td><td class="text-right">₹4,00,000</td></tr>
+        <tr style="background-color: #f3f4f6; font-weight: bold;"><td>Gross Total Value</td><td class="text-right">₹12,50,000</td></tr>
+    </table>
+    <div class="footer-note">Form 26 Affidavit — Kiran Rao (Fictional Sample) | Page 2 of 4</div>
+    """
+
+    p3 = """
+    <div class="banner">FICTIONAL SAMPLE — NOT A REAL CANDIDATE</div>
+    <div class="section-title">ITEM (8) DETAILS OF IMMOVABLE ASSETS & LIABILITIES</div>
+    <table class="info-table">
+        <tr><th>Description</th><th class="text-right">Self</th></tr>
+        <tr><td>Total Immovable Assets</td><td class="text-right">NIL</td></tr>
+        <tr><td>Total Liabilities</td><td class="text-right">NIL</td></tr>
+    </table>
+    <div class="footer-note">Form 26 Affidavit — Kiran Rao (Fictional Sample) | Page 3 of 4</div>
+    """
+
+    p4 = """
+    <div class="banner">FICTIONAL SAMPLE — NOT A REAL CANDIDATE</div>
+    <div class="section-title">ITEM (5) & (6) CRIMINAL ANTECEDENTS & CONVICTIONS</div>
+    <table class="info-table">
+        <tr><th style="width: 35%;">Pending Criminal Cases</th><td>NIL / NOT APPLICABLE</td></tr>
+        <tr><th>Cases of Conviction</th><td><strong>NIL / NOT APPLICABLE</strong></td></tr>
+    </table>
+    <div class="footer-note">Form 26 Affidavit — Kiran Rao (Fictional Sample) | Page 4 of 4</div>
+    """
+
+    for p in [p1, p2, p3, p4]:
+        page = doc.new_page(width=a4_width, height=a4_height)
+        page.insert_htmlbox(content_rect, p, css=CSS_STYLES)
+
+    doc.save(str(output_path))
+    doc.close()
+    return output_path
+
+
+def generate_candidate_z_pdf(output_path: Path | None = None) -> Path:
+    """Generate synthetic Form 26 PDF for Candidate Z (Ananya Sharma)."""
+    if output_path is None:
+        script_dir = Path(__file__).resolve().parent
+        workspace_root = script_dir.parent.parent.parent
+        output_path = workspace_root / "fixtures" / "fictional" / "candidate_z_affidavit.pdf"
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    a4_width, a4_height = 595, 842
+    content_rect = pymupdf.Rect(36, 36, a4_width - 36, a4_height - 36)
+
+    doc = pymupdf.open()
+
+    p1 = """
+    <div class="banner">FICTIONAL SAMPLE — NOT A REAL CANDIDATE</div>
+    <div class="header-title">FORM 26 (See Rule 4A)</div>
+    <div class="header-subtitle">AFFIDAVIT TO BE FILED BY THE CANDIDATE BEFORE THE RETURNING OFFICER</div>
+    <div class="section-title">ELECTION & CANDIDATE PARTICULARS</div>
+    <table class="info-table">
+        <tr><th style="width: 32%;">Election For</th><td>Telangana Legislative Assembly General Election 2024 (Fictional Sample)</td></tr>
+        <tr><th>Constituency</th><td><strong>Fictional Constituency, Telangana</strong> (Constituency Code: FC-01)</td></tr>
+        <tr><th>Candidate Name</th><td><span class="highlight">Ananya Sharma (Fictional Sample)</span></td></tr>
+        <tr><th>Party Affiliation</th><td><strong>Progressive Alliance — Fictional</strong></td></tr>
+        <tr><th>Filing Date</th><td><strong>2024-04-17</strong></td></tr>
+    </table>
+    <div class="section-title">ITEM (10) DETAILS OF HIGHEST EDUCATIONAL QUALIFICATION</div>
+    <table class="info-table">
+        <tr><th style="width: 32%;">Highest Degree</th><td><strong>M.A. in Public Policy</strong></td></tr>
+        <tr><th>College / University</th><td>Hyderabad Central University</td></tr>
+        <tr><th>Year of Completion</th><td>2016</td></tr>
+    </table>
+    <div class="footer-note">Form 26 Affidavit — Ananya Sharma (Fictional Sample) | Page 1 of 4</div>
+    """
+
+    p2 = """
+    <div class="banner">FICTIONAL SAMPLE — NOT A REAL CANDIDATE</div>
+    <div class="section-title">ITEM (7) DETAILS OF MOVABLE ASSETS</div>
+    <table class="info-table">
+        <tr><th>Description</th><th class="text-right">Self</th></tr>
+        <tr><td>(i) Cash in hand</td><td class="text-right">₹30,000</td></tr>
+        <tr><td>(ii) Bank Deposits</td><td class="text-right">₹4,90,000</td></tr>
+        <tr><td>(vi) Motor Vehicles</td><td class="text-right">₹3,00,000</td></tr>
+        <tr style="background-color: #f3f4f6; font-weight: bold;"><td>Gross Total Value</td><td class="text-right">₹8,20,000</td></tr>
+    </table>
+    <div class="footer-note">Form 26 Affidavit — Ananya Sharma (Fictional Sample) | Page 2 of 4</div>
+    """
+
+    p3 = """
+    <div class="banner">FICTIONAL SAMPLE — NOT A REAL CANDIDATE</div>
+    <div class="section-title">ITEM (8) DETAILS OF IMMOVABLE ASSETS & LIABILITIES</div>
+    <table class="info-table">
+        <tr><th>Description</th><th class="text-right">Self</th></tr>
+        <tr><td>Total Immovable Assets</td><td class="text-right">NIL</td></tr>
+        <tr><td>Total Liabilities</td><td class="text-right">NIL</td></tr>
+    </table>
+    <div class="footer-note">Form 26 Affidavit — Ananya Sharma (Fictional Sample) | Page 3 of 4</div>
+    """
+
+    p4 = """
+    <div class="banner">FICTIONAL SAMPLE — NOT A REAL CANDIDATE</div>
+    <div class="section-title">ITEM (5) & (6) CRIMINAL ANTECEDENTS & CONVICTIONS</div>
+    <table class="info-table">
+        <tr><th style="width: 35%;">Pending Criminal Cases</th><td><strong>NIL / NOT APPLICABLE</strong></td></tr>
+        <tr><th>Cases of Conviction</th><td>NIL / NOT APPLICABLE</td></tr>
+    </table>
+    <div class="footer-note">Form 26 Affidavit — Ananya Sharma (Fictional Sample) | Page 4 of 4</div>
+    """
+
+    for p in [p1, p2, p3, p4]:
+        page = doc.new_page(width=a4_width, height=a4_height)
+        page.insert_htmlbox(content_rect, p, css=CSS_STYLES)
+
+    doc.save(str(output_path))
+    doc.close()
+    return output_path
+
+
 if __name__ == "__main__":
     pdf_path = generate_fictional_pdf()
     print(f"Successfully generated synthetic Form 26 PDF at: {pdf_path}")

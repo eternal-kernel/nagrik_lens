@@ -25,49 +25,85 @@ def db_session():
 
 
 def test_table_row_counts(db_session):
-    """Verify exact expected row counts in all 7 tables."""
+    """Verify exact expected row counts in all 7 tables for multi-candidate seed."""
     assert db_session.query(func.count(Election.id)).scalar() == 1
     assert db_session.query(func.count(Constituency.id)).scalar() == 1
-    assert db_session.query(func.count(Candidate.id)).scalar() == 1
-    assert db_session.query(func.count(Affidavit.id)).scalar() == 1
-    assert db_session.query(func.count(Disclosure.id)).scalar() == 7
+    assert db_session.query(func.count(Candidate.id)).scalar() == 3
+    assert db_session.query(func.count(Affidavit.id)).scalar() == 3
+    assert db_session.query(func.count(Disclosure.id)).scalar() == 13
     assert db_session.query(func.count(LegalGlossary.id)).scalar() == 4
-    assert db_session.query(func.count(ReviewEvent.id)).scalar() == 7
+    assert db_session.query(func.count(ReviewEvent.id)).scalar() == 13
 
 
 def test_candidate_properties(db_session):
-    """Verify Candidate X has is_fictional=True and valid foreign key hierarchy."""
-    candidate = db_session.execute(select(Candidate)).scalar_one()
-    assert candidate.name == "Candidate X"
-    assert candidate.is_fictional is True
-    assert candidate.party_name == "Independent — Fictional"
-    assert candidate.constituency.code == "FC-01"
-    assert candidate.constituency.election.name.startswith("Telangana Legislative Assembly")
+    """Verify Candidate X, Y, and Z properties, fictional flags, and constituency."""
+    # Candidate X
+    cand_x = db_session.execute(select(Candidate).where(Candidate.id == 1)).scalar_one()
+    assert cand_x.name == "Candidate X"
+    assert cand_x.display_name == "Candidate X (Fictional Sample)"
+    assert cand_x.is_fictional is True
+    assert cand_x.party_name == "Independent — Fictional"
+    assert cand_x.constituency.code == "FC-01"
+    assert cand_x.constituency.election.name.startswith("Telangana Legislative Assembly")
+
+    # Candidate Y
+    cand_y = db_session.execute(select(Candidate).where(Candidate.id == 2)).scalar_one()
+    assert cand_y.name == "Kiran Rao"
+    assert cand_y.display_name == "Kiran Rao (Fictional Sample)"
+    assert cand_y.is_fictional is True
+    assert cand_y.party_name == "Civic Reform Front — Fictional"
+    assert cand_y.constituency_id == cand_x.constituency_id
+
+    # Candidate Z
+    cand_z = db_session.execute(select(Candidate).where(Candidate.id == 3)).scalar_one()
+    assert cand_z.name == "Ananya Sharma"
+    assert cand_z.display_name == "Ananya Sharma (Fictional Sample)"
+    assert cand_z.is_fictional is True
+    assert cand_z.party_name == "Progressive Alliance — Fictional"
+    assert cand_z.constituency_id == cand_x.constituency_id
 
 
 def test_disclosure_verification_breakdown(db_session):
-    """Verify 6 verified disclosures and exactly 1 needs_review (spouse movable assets)."""
+    """Verify total breakdown: 12 verified, exactly 1 needs_review (Candidate X spouse assets)."""
     disclosures = db_session.execute(select(Disclosure)).scalars().all()
-    assert len(disclosures) == 7
+    assert len(disclosures) == 13
 
     verified_count = sum(1 for d in disclosures if d.verification_status == "verified")
     needs_review_count = sum(1 for d in disclosures if d.verification_status == "needs_review")
 
-    assert verified_count == 6
+    assert verified_count == 12
     assert needs_review_count == 1
 
-    # Check that the flagged disclosure is Spouse Movable Assets
-    flagged = next(d for d in disclosures if d.verification_status == "needs_review")
+    # Check Candidate X specifically (6 verified + 1 needs_review)
+    cand_x_discs = [d for d in disclosures if d.affidavit_id == 1]
+    assert len(cand_x_discs) == 7
+    assert sum(1 for d in cand_x_discs if d.verification_status == "verified") == 6
+    assert sum(1 for d in cand_x_discs if d.verification_status == "needs_review") == 1
+
+    # Check that the flagged disclosure is Candidate X's Spouse Movable Assets
+    flagged = next(d for d in cand_x_discs if d.verification_status == "needs_review")
     assert flagged.category == "movable_assets"
     assert flagged.subject_type == "spouse"
     assert flagged.page_number == 2
     assert flagged.structured_value["amount"] == 320000
 
+    # Candidate Y and Z disclosures are all verified
+    cand_y_discs = [d for d in disclosures if d.affidavit_id == 2]
+    assert len(cand_y_discs) == 3
+    assert all(d.verification_status == "verified" for d in cand_y_discs)
+
+    cand_z_discs = [d for d in disclosures if d.affidavit_id == 3]
+    assert len(cand_z_discs) == 3
+    assert all(d.verification_status == "verified" for d in cand_z_discs)
+
 
 def test_pending_criminal_cases_structure(db_session):
-    """Verify pending_criminal_cases has exact required Form 26 structured keys."""
+    """Verify Candidate X pending_criminal_cases has exact required Form 26 structured keys."""
     case_disc = db_session.execute(
-        select(Disclosure).where(Disclosure.category == "pending_criminal_cases")
+        select(Disclosure).where(
+            Disclosure.affidavit_id == 1,
+            Disclosure.category == "pending_criminal_cases",
+        )
     ).scalar_one()
 
     val = case_disc.structured_value
@@ -81,16 +117,37 @@ def test_pending_criminal_cases_structure(db_session):
     assert val["stage_code"] == "STAGE_COGNIZANCE"
     assert case_disc.page_number == 4
 
+    # Candidate Z has pending cases NIL
+    cand_z_case = db_session.execute(
+        select(Disclosure).where(
+            Disclosure.affidavit_id == 3,
+            Disclosure.category == "pending_criminal_cases",
+        )
+    ).scalar_one()
+    assert cand_z_case.structured_value == {"count": 0, "status": "NIL"}
+
 
 def test_convictions_disclosure(db_session):
-    """Verify convictions disclosure shows NIL record on page 4."""
-    conv_disc = db_session.execute(
-        select(Disclosure).where(Disclosure.category == "convictions")
+    """Verify convictions disclosures show NIL record on page 4."""
+    cand_x_conv = db_session.execute(
+        select(Disclosure).where(
+            Disclosure.affidavit_id == 1,
+            Disclosure.category == "convictions",
+        )
     ).scalar_one()
+    assert cand_x_conv.structured_value == {"count": 0, "status": "NIL"}
+    assert cand_x_conv.page_number == 4
+    assert cand_x_conv.verification_status == "verified"
 
-    assert conv_disc.structured_value == {"count": 0, "status": "NIL"}
-    assert conv_disc.page_number == 4
-    assert conv_disc.verification_status == "verified"
+    cand_y_conv = db_session.execute(
+        select(Disclosure).where(
+            Disclosure.affidavit_id == 2,
+            Disclosure.category == "convictions",
+        )
+    ).scalar_one()
+    assert cand_y_conv.structured_value == {"count": 0, "status": "NIL"}
+    assert cand_y_conv.page_number == 4
+    assert cand_y_conv.verification_status == "verified"
 
 
 def test_legal_glossary_content(db_session):

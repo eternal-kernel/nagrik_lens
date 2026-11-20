@@ -31,7 +31,64 @@ from app.models import (
     LegalGlossary,
     ReviewEvent,
 )
-from scripts.generate_fictional_pdf import generate_fictional_pdf
+from scripts.generate_fictional_pdf import (
+    generate_fictional_pdf,
+    generate_candidate_y_pdf,
+    generate_candidate_z_pdf,
+)
+
+
+def seed_disclosures_and_reviews(db, affidavit_id: int, disclosures_list: list) -> None:
+    """Helper to idempotently seed disclosures and review events for an affidavit."""
+    for disc_def in disclosures_list:
+        disc = db.execute(
+            select(Disclosure).where(
+                Disclosure.affidavit_id == affidavit_id,
+                Disclosure.category == disc_def["category"],
+                Disclosure.field_key == disc_def["field_key"],
+                Disclosure.subject_type == disc_def["subject_type"],
+            )
+        ).scalar_one_or_none()
+
+        is_new = False
+        if disc is None:
+            disc = Disclosure(
+                affidavit_id=affidavit_id,
+                category=disc_def["category"],
+                field_key=disc_def["field_key"],
+                subject_type=disc_def["subject_type"],
+                structured_value=disc_def["structured_value"],
+                raw_excerpt=disc_def["raw_excerpt"],
+                page_number=disc_def["page_number"],
+                verification_status=disc_def["verification_status"],
+            )
+            db.add(disc)
+            db.flush()
+            is_new = True
+        else:
+            disc.structured_value = disc_def["structured_value"]
+            disc.raw_excerpt = disc_def["raw_excerpt"]
+            disc.page_number = disc_def["page_number"]
+            disc.verification_status = disc_def["verification_status"]
+            db.flush()
+
+        existing_event = db.execute(
+            select(ReviewEvent).where(
+                ReviewEvent.disclosure_id == disc.id,
+                ReviewEvent.action == disc_def["review_action"],
+            )
+        ).scalar_one_or_none()
+
+        if existing_event is None:
+            review_event = ReviewEvent(
+                disclosure_id=disc.id,
+                reviewer_name="Audit Lead (Fictional)",
+                action=disc_def["review_action"],
+                previous_value=None if is_new else {"status": "draft"},
+                new_value={"status": disc_def["verification_status"]},
+                review_note=disc_def["review_note"],
+            )
+            db.add(review_event)
 
 
 def compute_sha256(file_path: Path) -> str:
@@ -48,16 +105,33 @@ def seed_database() -> dict:
     print("--- Initializing Nagrik Lens Database Schema ---")
     init_db()
 
-    # Step 1: Ensure PDF fixture exists and compute hash
+    # Step 1: Ensure PDF fixtures exist and compute hashes
     pdf_path = WORKSPACE_ROOT / "fixtures" / "fictional" / "candidate_x_affidavit.pdf"
     if not pdf_path.exists():
         print(f"Generating synthetic PDF fixture at: {pdf_path}")
         generate_fictional_pdf(pdf_path)
     else:
         print(f"Synthetic PDF fixture already present at: {pdf_path}")
-
     file_hash = compute_sha256(pdf_path)
-    print(f"Affidavit SHA-256: {file_hash}")
+    print(f"Affidavit X SHA-256: {file_hash}")
+
+    pdf_y_path = WORKSPACE_ROOT / "fixtures" / "fictional" / "candidate_y_affidavit.pdf"
+    if not pdf_y_path.exists():
+        print(f"Generating synthetic PDF fixture at: {pdf_y_path}")
+        generate_candidate_y_pdf(pdf_y_path)
+    else:
+        print(f"Synthetic PDF fixture already present at: {pdf_y_path}")
+    file_hash_y = compute_sha256(pdf_y_path)
+    print(f"Affidavit Y SHA-256: {file_hash_y}")
+
+    pdf_z_path = WORKSPACE_ROOT / "fixtures" / "fictional" / "candidate_z_affidavit.pdf"
+    if not pdf_z_path.exists():
+        print(f"Generating synthetic PDF fixture at: {pdf_z_path}")
+        generate_candidate_z_pdf(pdf_z_path)
+    else:
+        print(f"Synthetic PDF fixture already present at: {pdf_z_path}")
+    file_hash_z = compute_sha256(pdf_z_path)
+    print(f"Affidavit Z SHA-256: {file_hash_z}")
 
     db = SessionLocal()
     try:
@@ -339,57 +413,234 @@ def seed_database() -> dict:
             },
         ]
 
-        print(f"Seeding {len(raw_disclosures)} disclosures...")
-        for disc_def in raw_disclosures:
-            disc = db.execute(
-                select(Disclosure).where(
-                    Disclosure.affidavit_id == affidavit.id,
-                    Disclosure.category == disc_def["category"],
-                    Disclosure.field_key == disc_def["field_key"],
-                    Disclosure.subject_type == disc_def["subject_type"],
-                )
-            ).scalar_one_or_none()
+        print(f"Seeding {len(raw_disclosures)} disclosures for Candidate X...")
+        seed_disclosures_and_reviews(db, affidavit.id, raw_disclosures)
 
-            is_new = False
-            if disc is None:
-                disc = Disclosure(
-                    affidavit_id=affidavit.id,
-                    category=disc_def["category"],
-                    field_key=disc_def["field_key"],
-                    subject_type=disc_def["subject_type"],
-                    structured_value=disc_def["structured_value"],
-                    raw_excerpt=disc_def["raw_excerpt"],
-                    page_number=disc_def["page_number"],
-                    verification_status=disc_def["verification_status"],
-                )
-                db.add(disc)
-                db.flush()
-                is_new = True
-            else:
-                disc.structured_value = disc_def["structured_value"]
-                disc.raw_excerpt = disc_def["raw_excerpt"]
-                disc.page_number = disc_def["page_number"]
-                disc.verification_status = disc_def["verification_status"]
-                db.flush()
+        # Step 8: Seed Candidate Y — Kiran Rao
+        cand_y_name = "Kiran Rao"
+        cand_y = db.execute(
+            select(Candidate).where(
+                Candidate.constituency_id == constituency.id,
+                Candidate.name == cand_y_name,
+            )
+        ).scalar_one_or_none()
 
-            # Record ReviewEvent if none exists for this disclosure action
-            existing_event = db.execute(
-                select(ReviewEvent).where(
-                    ReviewEvent.disclosure_id == disc.id,
-                    ReviewEvent.action == disc_def["review_action"],
-                )
-            ).scalar_one_or_none()
+        if cand_y is None:
+            cand_y = Candidate(
+                constituency_id=constituency.id,
+                name=cand_y_name,
+                display_name="Kiran Rao (Fictional Sample)",
+                party_name="Civic Reform Front — Fictional",
+                is_fictional=True,
+            )
+            db.add(cand_y)
+            db.flush()
+            print(f"Created Candidate Y: {cand_y.display_name} (id={cand_y.id})")
+        else:
+            cand_y.display_name = "Kiran Rao (Fictional Sample)"
+            cand_y.party_name = "Civic Reform Front — Fictional"
+            cand_y.is_fictional = True
+            print(f"Existing Candidate Y found: {cand_y.display_name} (id={cand_y.id})")
 
-            if existing_event is None:
-                review_event = ReviewEvent(
-                    disclosure_id=disc.id,
-                    reviewer_name="Audit Lead (Fictional)",
-                    action=disc_def["review_action"],
-                    previous_value=None if is_new else {"status": "draft"},
-                    new_value={"status": disc_def["verification_status"]},
-                    review_note=disc_def["review_note"],
-                )
-                db.add(review_event)
+        rel_pdf_y = "fixtures/fictional/candidate_y_affidavit.pdf"
+        affidavit_y = db.execute(
+            select(Affidavit).where(
+                Affidavit.candidate_id == cand_y.id,
+                Affidavit.file_path == rel_pdf_y,
+            )
+        ).scalar_one_or_none()
+
+        if affidavit_y is None:
+            affidavit_y = Affidavit(
+                candidate_id=cand_y.id,
+                source_url="https://eci.gov.in/fictional/candidate_y_form26.pdf",
+                file_path=rel_pdf_y,
+                file_hash=file_hash_y,
+                filing_date=date(2024, 4, 16),
+                processing_status="processed",
+                publication_status="published",
+                redaction_boxes=None,
+            )
+            db.add(affidavit_y)
+            db.flush()
+            print(f"Created Affidavit (id={affidavit_y.id}) for Candidate Y")
+        else:
+            affidavit_y.file_hash = file_hash_y
+            affidavit_y.filing_date = date(2024, 4, 16)
+            affidavit_y.processing_status = "processed"
+            affidavit_y.publication_status = "published"
+            print(f"Existing Affidavit found (id={affidavit_y.id}) for Candidate Y")
+
+        cand_y_disclosures = [
+            # 1. Education
+            {
+                "category": "education",
+                "field_key": "highest_educational_qualification",
+                "subject_type": "self",
+                "page_number": 1,
+                "verification_status": "verified",
+                "structured_value": {
+                    "degree": "B.Tech in Computer Science",
+                    "institution": "NIT Warangal",
+                    "year": 2014,
+                    "course_format": "Regular Full-Time Degree",
+                },
+                "raw_excerpt": "B.Tech in Computer Science, NIT Warangal, 2014",
+                "review_action": "verified",
+                "review_note": "Educational qualification matches NIT Warangal degree certificate.",
+            },
+            # 2. Movable Assets
+            {
+                "category": "movable_assets",
+                "field_key": "gross_total_movable_assets",
+                "subject_type": "self",
+                "page_number": 2,
+                "verification_status": "verified",
+                "structured_value": {
+                    "currency": "INR",
+                    "amount": 1250000,
+                    "formatted": "₹12,50,000",
+                    "breakdown": {
+                        "cash": 50000,
+                        "bank_deposits": 800000,
+                        "motor_vehicles": 400000,
+                    },
+                },
+                "raw_excerpt": "Self Movable Assets: ₹12,50,000",
+                "review_action": "verified",
+                "review_note": "Self movable assets total matches Item (7)(A) subtotal table.",
+            },
+            # 3. Convictions
+            {
+                "category": "convictions",
+                "field_key": "cases_of_conviction",
+                "subject_type": "self",
+                "page_number": 4,
+                "verification_status": "verified",
+                "structured_value": {
+                    "count": 0,
+                    "status": "NIL",
+                },
+                "raw_excerpt": "Item (6) Cases of Conviction: NIL / NOT APPLICABLE",
+                "review_action": "verified",
+                "review_note": "Deponent declared Nil convictions under Rule 4A.",
+            },
+        ]
+        print(f"Seeding {len(cand_y_disclosures)} disclosures for Candidate Y...")
+        seed_disclosures_and_reviews(db, affidavit_y.id, cand_y_disclosures)
+
+        # Step 9: Seed Candidate Z — Ananya Sharma
+        cand_z_name = "Ananya Sharma"
+        cand_z = db.execute(
+            select(Candidate).where(
+                Candidate.constituency_id == constituency.id,
+                Candidate.name == cand_z_name,
+            )
+        ).scalar_one_or_none()
+
+        if cand_z is None:
+            cand_z = Candidate(
+                constituency_id=constituency.id,
+                name=cand_z_name,
+                display_name="Ananya Sharma (Fictional Sample)",
+                party_name="Progressive Alliance — Fictional",
+                is_fictional=True,
+            )
+            db.add(cand_z)
+            db.flush()
+            print(f"Created Candidate Z: {cand_z.display_name} (id={cand_z.id})")
+        else:
+            cand_z.display_name = "Ananya Sharma (Fictional Sample)"
+            cand_z.party_name = "Progressive Alliance — Fictional"
+            cand_z.is_fictional = True
+            print(f"Existing Candidate Z found: {cand_z.display_name} (id={cand_z.id})")
+
+        rel_pdf_z = "fixtures/fictional/candidate_z_affidavit.pdf"
+        affidavit_z = db.execute(
+            select(Affidavit).where(
+                Affidavit.candidate_id == cand_z.id,
+                Affidavit.file_path == rel_pdf_z,
+            )
+        ).scalar_one_or_none()
+
+        if affidavit_z is None:
+            affidavit_z = Affidavit(
+                candidate_id=cand_z.id,
+                source_url="https://eci.gov.in/fictional/candidate_z_form26.pdf",
+                file_path=rel_pdf_z,
+                file_hash=file_hash_z,
+                filing_date=date(2024, 4, 17),
+                processing_status="processed",
+                publication_status="published",
+                redaction_boxes=None,
+            )
+            db.add(affidavit_z)
+            db.flush()
+            print(f"Created Affidavit (id={affidavit_z.id}) for Candidate Z")
+        else:
+            affidavit_z.file_hash = file_hash_z
+            affidavit_z.filing_date = date(2024, 4, 17)
+            affidavit_z.processing_status = "processed"
+            affidavit_z.publication_status = "published"
+            print(f"Existing Affidavit found (id={affidavit_z.id}) for Candidate Z")
+
+        cand_z_disclosures = [
+            # 1. Education
+            {
+                "category": "education",
+                "field_key": "highest_educational_qualification",
+                "subject_type": "self",
+                "page_number": 1,
+                "verification_status": "verified",
+                "structured_value": {
+                    "degree": "M.A. in Public Policy",
+                    "institution": "Hyderabad Central University",
+                    "year": 2016,
+                    "course_format": "Regular Full-Time Degree",
+                },
+                "raw_excerpt": "M.A. in Public Policy, Hyderabad Central University, 2016",
+                "review_action": "verified",
+                "review_note": "Educational qualification matches Hyderabad Central University degree certificate.",
+            },
+            # 2. Movable Assets
+            {
+                "category": "movable_assets",
+                "field_key": "gross_total_movable_assets",
+                "subject_type": "self",
+                "page_number": 2,
+                "verification_status": "verified",
+                "structured_value": {
+                    "currency": "INR",
+                    "amount": 820000,
+                    "formatted": "₹8,20,000",
+                    "breakdown": {
+                        "cash": 30000,
+                        "bank_deposits": 490000,
+                        "motor_vehicles": 300000,
+                    },
+                },
+                "raw_excerpt": "Self Movable Assets: ₹8,20,000",
+                "review_action": "verified",
+                "review_note": "Self movable assets total matches Item (7)(A) subtotal table.",
+            },
+            # 3. Pending Criminal Cases (NIL)
+            {
+                "category": "pending_criminal_cases",
+                "field_key": "pending_cases_summary",
+                "subject_type": "self",
+                "page_number": 4,
+                "verification_status": "verified",
+                "structured_value": {
+                    "count": 0,
+                    "status": "NIL",
+                },
+                "raw_excerpt": "Item (5) Pending Criminal Cases: NIL / NOT APPLICABLE",
+                "review_action": "verified",
+                "review_note": "Deponent declared Nil pending criminal cases under Rule 4A.",
+            },
+        ]
+        print(f"Seeding {len(cand_z_disclosures)} disclosures for Candidate Z...")
+        seed_disclosures_and_reviews(db, affidavit_z.id, cand_z_disclosures)
 
         db.commit()
         print("Database transaction successfully committed.")

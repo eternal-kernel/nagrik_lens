@@ -7,6 +7,7 @@ from app.schemas.affidavit import (
 )
 from app.schemas.candidate import CandidateSummary, CandidateDetail
 from app.schemas.glossary import LegalGlossaryItem
+from app.schemas.poster import CandidateMatchItem, PosterScanResponse
 from app.schemas.disclosure import (
     ReviewEventRead,
     RenderedDisclosure,
@@ -28,4 +29,6 @@ __all__ = [
     "RenderedDisclosure",
     "AdminDisclosureRead",
     "DisclosurePatchRequest",
+    "CandidateMatchItem",
+    "PosterScanResponse",
 ]
