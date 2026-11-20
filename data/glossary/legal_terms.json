@@ -1,0 +1,38 @@
+[
+  {
+    "code_key": "IPC_143",
+    "act_name": "Indian Penal Code, 1860",
+    "term_en": "Unlawful Assembly (Section 143 IPC)",
+    "explanation_en": "Prescribes punishment (imprisonment up to 6 months, fine, or both) for being a member of an unlawful assembly—a gathering of five or more persons with a common unlawful object, such as protesting unlawfully or obstructing public duties. Note: This represents an alleged charge under trial; an allegation does not constitute guilt or conviction until proven in a court of law.",
+    "explanation_te": "చట్టవిరుద్ధమైన జనసమూహంలో సభ్యుడిగా ఉండటంపై శిక్ష (సెక్షన్ 143 ఐపీసీ). సాధారణంగా ఐదు లేదా అంతకంటే ఎక్కువ మంది వ్యక్తులు చట్టవ్యతిరేక ఉద్దేశంతో లేదా ప్రభుత్వ విధులకు ఆటంకం కలిగించేందుకు గుమిగూడినప్పుడు ఈ సెక్షన్ వర్తిస్తుంది (ఉదాహరణకు అనుమతి లేని నిరసనలు లేదా ఆందోళనలు). ముఖ్య గమనిక: ఇది న్యాయస్థానం ముందు విచారణలో ఉన్న ఆరోపణ మాత్రమే. న్యాయ విచారణ పూర్తయి నేరం రుజువు అయ్యేంతవరకు వ్యక్తిని దోషిగా పరిగణించలేరు; ఇది శిక్ష లేదా దోష నిర్ధారణ కాదు.",
+    "explanation_hi": "गैरकानूनी जनसमूह का सदस्य होना (धारा 143 आईपीसी)। इसके तहत 6 महीने तक के कारावास, जुर्माने या दोनों का प्रावधान है। जब पांच या अधिक व्यक्ति किसी सामान्य गैरकानूनी उद्देश्य या सरकारी कार्य में बाधा डालने के इरादे से एकत्र होते हैं (जैसे बिना अनुमति विरोध प्रदर्शन), तब यह धारा लगाई जाती है। महत्वपूर्ण स्पष्टीकरण: यह केवल अदालत में विचाराधीन एक आरोप है। जब तक न्यायिक प्रक्रिया के बाद दोष सिद्ध नहीं हो जाता, तब तक व्यक्ति को दोषी नहीं माना जाता; यह कोई दोषसिद्धि (सजा) नहीं है।",
+    "review_status": "verified"
+  },
+  {
+    "code_key": "IPC_341",
+    "act_name": "Indian Penal Code, 1860",
+    "term_en": "Wrongful Restraint (Section 341 IPC)",
+    "explanation_en": "Prescribes punishment (simple imprisonment up to 1 month, fine up to ₹500, or both) for wrongfully restraining any person—meaning voluntarily obstructing someone from proceeding in a direction where they have a legal right to go (frequently applied during road blockades, dharnas, or civic demonstrations). Note: This is a pending accusation under trial, not a finding of guilt or a criminal conviction.",
+    "explanation_te": "అక్రమ నిరోధం లేదా అడ్డగించడం (సెక్షన్ 341 ఐపీసీ). ఒక వ్యక్తికి చట్టబద్ధంగా వెళ్లే హక్కు ఉన్న దిశలో వెళ్లకుండా ఉద్దేశపూర్వకంగా ఆపడం లేదా అడ్డుకోవడాన్ని ఇది సూచిస్తుంది (ఉదాహరణకు రహదారి దిగ్బంధనం, ధర్నాలు లేదా ప్రజా నిరసనల సమయంలో మార్గాన్ని అడ్డుకోవడం). దీనికి ఒక నెల వరకు సాధారణ జైలు శిక్ష లేదా ₹500 జరిమానా విధించవచ్చు. ముఖ్య గమనిక: ఇది విచారణలో ఉన్న అభియోగం మాత్రమే. న్యాయస్థానం తుది తీర్పు ఇచ్చే వరకు నేరం రుజువు కాలేదు మరియు ఇది ఎలాంటి శిక్షా తీర్పు కాదు.",
+    "explanation_hi": "सदोष अवरोध के लिए दंड (धारा 341 आईपीसी)। किसी व्यक्ति को उसकी इच्छा अनुसार किसी दिशा में जाने से जानबूझकर रोकना, जहां जाने का उसे कानूनी अधिकार है (जैसे सड़क जाम, धरना या सार्वजनिक प्रदर्शनों के दौरान रास्ता रोकना)। इसके तहत 1 महीने तक की जेल या ₹500 तक का जुर्माना हो सकता है। महत्वपूर्ण स्पष्टीकरण: यह केवल अदालत में विचाराधीन मामला है, कोई साबित हुआ अपराध या दोषसिद्धि नहीं है। सुनवाई पूरी होने तक आरोपी को कानूनन निर्दोष माना जाता है।",
+    "review_status": "verified"
+  },
+  {
+    "code_key": "STAGE_COGNIZANCE",
+    "act_name": "Code of Criminal Procedure, 1973",
+    "term_en": "Cognizance Taken by Court",
+    "explanation_en": "The judicial magistrate or court has formally examined the police report (charge sheet) or complaint and determined there is sufficient preliminary basis to begin judicial proceedings. Critical context: Taking cognizance does NOT imply guilt, conviction, or even that charges have been proven. It solely marks the judicial beginning of the case process, and the accused is presumed innocent throughout.",
+    "explanation_te": "న్యాయస్థానం ద్వారా కేసు పరిజ్ఞానం స్వీకరణ (కాగ్నిజెన్స్). న్యాయమూర్తి లేదా న్యాయస్థానం పోలీసు నివేదికను (ఛార్జ్ షీట్) లేదా ఫిర్యాదును ప్రాథమికంగా పరిశీలించి, న్యాయపరమైన విచారణను ప్రారంభించేందుకు కేసును అధికారికంగా స్వీకరించిన దశ ఇది. అత్యంత ముఖ్యమైన వివరణ: కాగ్నిజెన్స్ తీసుకోవడం అంటే నేరం రుజువు కావడం లేదా శిక్ష పడటం కాదు. ఇది కేవలం న్యాయ విచారణ ప్రక్రియ ఆరంభ దశ మాత్రమే. విచారణ పూర్తయ్యే వరకు నిందితుడు చట్టం ప్రకారం నిర్దోషిగానే ఉంటారు.",
+    "explanation_hi": "अदालत द्वारा संज्ञान लेना (कॉग्निजेंस)। न्यायिक मजिस्ट्रेट या अदालत ने पुलिस रिपोर्ट (चार्जशीट) या शिकायत का अवलोकन कर यह तय किया है कि न्यायिक प्रक्रिया शुरू करने के लिए प्रथम दृष्टया पर्याप्त आधार मौजूद हैं। अत्यंत महत्वपूर्ण स्पष्टीकरण: संज्ञान लेने का अर्थ बिल्कुल भी यह नहीं है कि अपराध साबित हो गया है या व्यक्ति दोषी है। यह केवल न्यायिक प्रक्रिया का औपचारिक प्रारंभ है, और जब तक मुकदमा पूरा होकर निर्णय नहीं आता, तब तक आरोपी को कानूनन निर्दोष माना जाता है।",
+    "review_status": "verified"
+  },
+  {
+    "code_key": "CHARGES_NOT_FRAMED",
+    "act_name": "Code of Criminal Procedure, 1973",
+    "term_en": "Charges Not Yet Framed",
+    "explanation_en": "The formal written charges specifying the offenses have not yet been framed or read out by the court. At this pre-trial stage, the court has not yet evaluated whether the prosecution has presented a prima facie case sufficient to put the accused on trial. It confirms the case is in its earliest stages and guilt is far from determined.",
+    "explanation_te": "అధికారిక నేరారోపణలు ఇంకా నమోదు కాలేదు (ఛార్జీలు ఫ్రేమ్ కాలేదు). న్యాయస్థానం నిందితుడిపై నిర్దిష్ట చట్టపరమైన ఆరోపణలను (ఛార్జీలను) అధికారికంగా ఇంకా ఖరారు చేయలేదు. ఇది విచారణ ప్రారంభానికి ముందస్తు దశ; నిందితుడిపై విచారణ జరపడానికి ప్రాథమిక ఆధారాలు ఉన్నాయా లేదా అన్నది కోర్టు ఇంకా నిర్ణయించలేదు. ఈ దశలో నేరం ఏమాత్రం రుజువు కాలేదు మరియు ఇది ఎటువంటి శిక్ష కాదు.",
+    "explanation_hi": "आरोप अभी तय नहीं किए गए (चार्जेज नॉट फ्रेम्ड)। अदालत द्वारा अभी तक अभियुक्त के विरुद्ध औपचारिक रूप से लिखित आरोप तय नहीं किए गए हैं। यह मुकदमे की सुनवाई से पूर्व का प्रारंभिक चरण है, जहां अदालत ने अभी यह तय नहीं किया है कि मुकदमा चलाने के लिए पर्याप्त आधार हैं या नहीं। यह स्पष्ट करता है कि मामला अभी शुरुआती स्तर पर है और दोष सिद्ध होने का कोई सवाल ही नहीं है।",
+    "review_status": "verified"
+  }
+]
