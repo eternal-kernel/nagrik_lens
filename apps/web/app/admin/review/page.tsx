@@ -3,34 +3,41 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import {
+  getAdminAffidavits,
   getAdminAffidavitDisclosures,
   patchAdminDisclosure,
+  uploadAdminAffidavit,
+  extractAdminAffidavit,
   getAffidavitPdfUrl,
   AdminDisclosureRead,
-  ReviewEvent,
+  AdminAffidavitListItem,
+  AffidavitUploadResponse,
+  AffidavitExtractionResponse,
 } from "@/lib/api";
 import PdfViewer from "@/components/PdfViewer";
 import {
-  ShieldAlert,
   CheckCircle2,
   AlertTriangle,
   XCircle,
   FileText,
   KeyRound,
   RotateCw,
-  ExternalLink,
   Clock,
   History,
-  FileCheck,
   Check,
-  Send,
   AlertCircle,
   ArrowRight,
+  UploadCloud,
+  FileUp,
+  ChevronDown,
+  ChevronUp,
+  Sparkles,
 } from "lucide-react";
 
 export default function AdminReviewPage() {
   const [adminKey, setAdminKey] = useState<string>("dev-secret-key");
   const [affidavitId, setAffidavitId] = useState<number>(1);
+  const [affidavitList, setAffidavitList] = useState<AdminAffidavitListItem[]>([]);
   const [disclosures, setDisclosures] = useState<AdminDisclosureRead[]>([]);
   const [selectedDisclosure, setSelectedDisclosure] = useState<AdminDisclosureRead | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
@@ -45,6 +52,31 @@ export default function AdminReviewPage() {
   const [reviewerName, setReviewerName] = useState<string>("Demo Reviewer");
   const [reviewNote, setReviewNote] = useState<string>("");
   const [currentPdfPage, setCurrentPdfPage] = useState<number>(1);
+
+  // Ingestion & Extraction panel state
+  const [isUploadPanelOpen, setIsUploadPanelOpen] = useState<boolean>(false);
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadCandidateId, setUploadCandidateId] = useState<number>(1);
+  const [uploadFilingDate, setUploadFilingDate] = useState<string>("2024-04-15");
+  const [uploadSourceUrl, setUploadSourceUrl] = useState<string>("");
+  const [uploadLoading, setUploadLoading] = useState<boolean>(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadReport, setUploadReport] = useState<{
+    uploadRes: AffidavitUploadResponse;
+    extractRes: AffidavitExtractionResponse;
+  } | null>(null);
+
+  // Fetch affidavits list
+  const fetchAffidavitsList = async (keyToUse: string = adminKey) => {
+    try {
+      const list = await getAdminAffidavits(keyToUse);
+      setAffidavitList(list);
+      return list;
+    } catch (err: any) {
+      console.error("Failed to load affidavits list:", err);
+      return [];
+    }
+  };
 
   // Fetch disclosures for the affidavit
   const fetchDisclosures = async (targetAffidavitId: number = affidavitId, keyToUse: string = adminKey) => {
@@ -73,7 +105,11 @@ export default function AdminReviewPage() {
 
   // Initial load
   useEffect(() => {
-    fetchDisclosures(1, "dev-secret-key");
+    async function init() {
+      await fetchAffidavitsList("dev-secret-key");
+      await fetchDisclosures(1, "dev-secret-key");
+    }
+    init();
   }, []);
 
   const handleSelectDisclosure = (disc: AdminDisclosureRead) => {
@@ -121,9 +157,15 @@ export default function AdminReviewPage() {
       setDisclosures(refreshedDisclosures);
       setSelectedDisclosure(updated);
 
+      // Refresh affidavits counts in background
+      fetchAffidavitsList(adminKey);
+
+      const activeCandidateId =
+        affidavitList.find((a) => a.id === affidavitId)?.candidate_id || 1;
+
       setSuccessBanner({
         message: `Disclosure #${updated.id} (${updated.category}) successfully updated to "${targetStatus}".`,
-        candidateId: 1,
+        candidateId: activeCandidateId,
       });
 
       // Clear review note for next action
@@ -133,6 +175,49 @@ export default function AdminReviewPage() {
       setError(err.message || "Failed to update disclosure.");
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleUploadAndExtract = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!uploadFile) {
+      setUploadError("Please select an ECI Form 26 PDF document.");
+      return;
+    }
+
+    try {
+      setUploadLoading(true);
+      setUploadError(null);
+      setUploadReport(null);
+
+      // Step 1: Upload PDF
+      const uploadRes = await uploadAdminAffidavit(
+        uploadFile,
+        uploadCandidateId,
+        uploadFilingDate || null,
+        uploadSourceUrl.trim() || null,
+        adminKey
+      );
+
+      // Step 2: Run automated extraction
+      const extractRes = await extractAdminAffidavit(uploadRes.affidavit.id, adminKey);
+
+      setUploadReport({ uploadRes, extractRes });
+
+      // Step 3: Refresh affidavits list & switch console to new affidavit
+      await fetchAffidavitsList(adminKey);
+      setAffidavitId(uploadRes.affidavit.id);
+      await fetchDisclosures(uploadRes.affidavit.id, adminKey);
+
+      setSuccessBanner({
+        message: `Affidavit #${uploadRes.affidavit.id} successfully uploaded & extracted (${extractRes.disclosures_extracted} draft disclosures ready for verification).`,
+        candidateId: uploadRes.affidavit.candidate_id,
+      });
+    } catch (err: any) {
+      console.error("Upload & Extraction failed:", err);
+      setUploadError(err.message || "Failed to upload and extract affidavit.");
+    } finally {
+      setUploadLoading(false);
     }
   };
 
@@ -179,10 +264,13 @@ export default function AdminReviewPage() {
     }
   };
 
+  const activeCandidateName =
+    affidavitList.find((a) => a.id === affidavitId)?.candidate_name || `Affidavit #${affidavitId}`;
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
       {/* Top Header & Admin Auth Bar */}
-      <div className="mb-6 rounded-2xl border border-civic-200 bg-white p-5 shadow-sm">
+      <div className="mb-6 rounded-2xl border border-civic-200 bg-white p-5 shadow-sm space-y-4">
         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
           <div>
             <div className="flex items-center gap-2">
@@ -198,7 +286,7 @@ export default function AdminReviewPage() {
             </p>
           </div>
 
-          {/* Admin Key & Action Bar */}
+          {/* Admin Key, Affidavit Selector & Action Buttons */}
           <div className="flex flex-wrap items-center gap-2">
             <div className="relative">
               <KeyRound className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-civic-400" />
@@ -211,20 +299,240 @@ export default function AdminReviewPage() {
               />
             </div>
 
+            {/* Affidavit Selector Dropdown */}
+            {affidavitList.length > 0 ? (
+              <select
+                value={affidavitId}
+                onChange={(e) => {
+                  const newId = Number(e.target.value);
+                  setAffidavitId(newId);
+                  fetchDisclosures(newId, adminKey);
+                }}
+                className="rounded-lg border border-civic-300 bg-white py-1.5 px-3 text-xs font-semibold text-civic-800 focus:border-civic-800 focus:outline-none focus:ring-1 focus:ring-civic-800 max-w-[280px] truncate"
+              >
+                {affidavitList.map((aff) => (
+                  <option key={aff.id} value={aff.id}>
+                    Affidavit #{aff.id} — {aff.candidate_name} ({aff.disclosure_count} items, {aff.needs_review_count} pending)
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <div className="rounded-lg border border-civic-200 bg-civic-50 px-3 py-1.5 text-xs text-civic-600 font-medium">
+                Affidavit #{affidavitId}
+              </div>
+            )}
+
             <button
-              onClick={() => fetchDisclosures(affidavitId, adminKey)}
+              onClick={() => {
+                fetchAffidavitsList(adminKey);
+                fetchDisclosures(affidavitId, adminKey);
+              }}
               disabled={loading}
               className="inline-flex items-center gap-1.5 rounded-lg bg-civic-900 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-civic-800 disabled:opacity-50"
+              title="Reload Disclosures"
             >
               <RotateCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
-              <span>Load Affidavit #{affidavitId}</span>
+              <span>Reload</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsUploadPanelOpen(!isUploadPanelOpen)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-300 bg-indigo-50 px-3 py-1.5 text-xs font-bold text-indigo-800 transition hover:bg-indigo-100"
+            >
+              <UploadCloud className="h-3.5 w-3.5 text-indigo-600" />
+              <span>{isUploadPanelOpen ? "Close Upload Panel" : "Upload & Extract PDF"}</span>
+              {isUploadPanelOpen ? (
+                <ChevronUp className="h-3.5 w-3.5 text-indigo-600" />
+              ) : (
+                <ChevronDown className="h-3.5 w-3.5 text-indigo-600" />
+              )}
             </button>
           </div>
         </div>
 
+        {/* Collapsible Upload & Extract New Affidavit Panel */}
+        {isUploadPanelOpen && (
+          <div className="mt-4 rounded-xl border border-indigo-200 bg-indigo-50/50 p-5 shadow-sm space-y-4 animate-fadeIn">
+            <div className="flex items-center justify-between border-b border-indigo-100 pb-2.5">
+              <div className="flex items-center gap-2">
+                <FileUp className="h-4 w-4 text-indigo-700" />
+                <h2 className="text-sm font-bold text-indigo-950">
+                  Upload &amp; Automated Extraction of ECI Form 26 PDF
+                </h2>
+              </div>
+              <span className="text-[11px] font-semibold text-indigo-700 uppercase tracking-wide">
+                Deterministic Ingestion Pipeline
+              </span>
+            </div>
+
+            <form onSubmit={handleUploadAndExtract} className="space-y-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                {/* File picker */}
+                <div className="space-y-1 sm:col-span-2">
+                  <label className="block text-xs font-bold text-civic-800">
+                    Form 26 Affidavit PDF: <span className="text-red-600">*</span>
+                  </label>
+                  <input
+                    type="file"
+                    accept=".pdf,application/pdf"
+                    onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
+                    className="block w-full text-xs text-civic-700 file:mr-3 file:rounded-lg file:border-0 file:bg-indigo-600 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-white hover:file:bg-indigo-700 cursor-pointer rounded-lg border border-civic-300 bg-white p-1"
+                  />
+                  {uploadFile && (
+                    <p className="text-[11px] text-civic-500 truncate">
+                      Selected: {uploadFile.name} ({(uploadFile.size / 1024).toFixed(1)} KB)
+                    </p>
+                  )}
+                </div>
+
+                {/* Candidate ID */}
+                <div className="space-y-1">
+                  <label className="block text-xs font-bold text-civic-800">
+                    Candidate ID: <span className="text-red-600">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={uploadCandidateId}
+                    onChange={(e) => setUploadCandidateId(Number(e.target.value) || 1)}
+                    className="w-full rounded-lg border border-civic-300 bg-white px-3 py-1.5 text-xs text-civic-800 focus:border-civic-800 focus:outline-none focus:ring-1 focus:ring-civic-800"
+                  />
+                </div>
+
+                {/* Filing Date */}
+                <div className="space-y-1">
+                  <label className="block text-xs font-bold text-civic-800">
+                    Filing Date (YYYY-MM-DD):
+                  </label>
+                  <input
+                    type="date"
+                    value={uploadFilingDate}
+                    onChange={(e) => setUploadFilingDate(e.target.value)}
+                    className="w-full rounded-lg border border-civic-300 bg-white px-3 py-1.5 text-xs text-civic-800 focus:border-civic-800 focus:outline-none focus:ring-1 focus:ring-civic-800"
+                  />
+                </div>
+              </div>
+
+              {/* Source URL */}
+              <div className="space-y-1">
+                <label className="block text-xs font-bold text-civic-800">
+                  Official Source / ECI URL (Optional):
+                </label>
+                <input
+                  type="url"
+                  placeholder="https://affidavit.eci.gov.in/..."
+                  value={uploadSourceUrl}
+                  onChange={(e) => setUploadSourceUrl(e.target.value)}
+                  className="w-full rounded-lg border border-civic-300 bg-white px-3 py-1.5 text-xs text-civic-800 focus:border-civic-800 focus:outline-none focus:ring-1 focus:ring-civic-800"
+                />
+              </div>
+
+              {uploadError && (
+                <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-2.5 text-xs font-medium text-red-800">
+                  <AlertCircle className="h-4 w-4 shrink-0 text-red-600" />
+                  <span>{uploadError}</span>
+                </div>
+              )}
+
+              <div className="flex items-center justify-end gap-3 pt-1">
+                <button
+                  type="submit"
+                  disabled={uploadLoading || !uploadFile}
+                  className="inline-flex items-center gap-2 rounded-lg bg-indigo-700 px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-indigo-800 disabled:opacity-50"
+                >
+                  {uploadLoading ? (
+                    <>
+                      <RotateCw className="h-4 w-4 animate-spin text-indigo-200" />
+                      <span>Ingesting &amp; Extracting PDF...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="h-4 w-4 text-indigo-200" />
+                      <span>Upload &amp; Run Extraction</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+
+            {/* Inspection & Extraction Report Banner */}
+            {uploadReport && (
+              <div className="mt-4 rounded-xl border border-indigo-200 bg-white p-4 text-xs space-y-3 animate-fadeIn">
+                <div className="flex items-center justify-between border-b border-civic-100 pb-2">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                    <span className="font-extrabold text-civic-900">
+                      Extraction Report for Affidavit #{uploadReport.uploadRes.affidavit.id}
+                    </span>
+                  </div>
+                  <span className="rounded bg-emerald-100 px-2.5 py-0.5 text-[10px] font-bold text-emerald-800 uppercase">
+                    Status: {uploadReport.extractRes.processing_status}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 font-mono text-[11px]">
+                  <div className="rounded-lg border border-civic-200 bg-civic-50/60 p-2">
+                    <span className="block text-[10px] text-civic-500 uppercase font-sans">Total Pages</span>
+                    <span className="font-bold text-civic-900">{uploadReport.extractRes.pages_inspected}</span>
+                  </div>
+                  <div className="rounded-lg border border-civic-200 bg-civic-50/60 p-2">
+                    <span className="block text-[10px] text-civic-500 uppercase font-sans">Digital Pages</span>
+                    <span className="font-bold text-civic-900">{uploadReport.uploadRes.inspection.digital_pages}</span>
+                  </div>
+                  <div className="rounded-lg border border-civic-200 bg-civic-50/60 p-2">
+                    <span className="block text-[10px] text-civic-500 uppercase font-sans">Scanned / OCR</span>
+                    <span className="font-bold text-civic-900">{uploadReport.uploadRes.inspection.scanned_pages}</span>
+                  </div>
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 p-2">
+                    <span className="block text-[10px] text-amber-800 uppercase font-sans">Draft Disclosures</span>
+                    <span className="font-bold text-amber-900">{uploadReport.extractRes.disclosures_extracted} (needs_review)</span>
+                  </div>
+                </div>
+
+                <div className="text-[11px] text-civic-600 font-mono">
+                  SHA-256: <span className="text-civic-800">{uploadReport.uploadRes.inspection.file_hash}</span>
+                </div>
+
+                {/* Warnings List & Highlighted Part-A vs Part-B Mismatches */}
+                {uploadReport.extractRes.warnings.length > 0 ? (
+                  <div className="space-y-2 border-t border-civic-100 pt-2.5">
+                    <div className="flex items-center gap-1.5 font-bold text-amber-900">
+                      <AlertTriangle className="h-4 w-4 text-amber-600" />
+                      <span>Extraction Diagnostics &amp; Warnings ({uploadReport.extractRes.warnings.length})</span>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      {uploadReport.extractRes.warnings.map((w, idx) => {
+                        const isMismatch = w.includes("[PART-A vs PART-B MISMATCH]");
+                        return (
+                          <div
+                            key={idx}
+                            className={`rounded-lg p-2.5 text-xs ${
+                              isMismatch
+                                ? "border-2 border-rose-400 bg-rose-50 text-rose-950 font-bold tracking-tight shadow-sm"
+                                : "border border-amber-200 bg-amber-50/80 text-amber-900 font-medium"
+                            }`}
+                          >
+                            {w}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-xs text-emerald-700 font-medium pt-1">
+                    ✓ All Form 26 sections matched cleanly with 0 extraction warnings.
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Error Banner */}
         {error && (
-          <div className="mt-4 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-xs font-medium text-red-800">
+          <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-xs font-medium text-red-800">
             <AlertCircle className="h-4 w-4 shrink-0 text-red-600" />
             <span>{error}</span>
           </div>
@@ -232,7 +540,7 @@ export default function AdminReviewPage() {
 
         {/* Success Banner */}
         {successBanner && (
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-900 animate-fadeIn">
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-900 animate-fadeIn">
             <div className="flex items-center gap-2">
               <Check className="h-4 w-4 shrink-0 text-emerald-600" />
               <span className="font-semibold">{successBanner.message}</span>
@@ -258,7 +566,7 @@ export default function AdminReviewPage() {
               <span>Original Sworn Form 26 PDF</span>
             </h2>
             <span className="text-[11px] text-civic-500 font-medium">
-              Candidate X Affidavit
+              {activeCandidateName}
             </span>
           </div>
 

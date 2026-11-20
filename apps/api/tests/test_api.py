@@ -411,6 +411,23 @@ def test_admin_auth_guard(isolated_test_client):
     assert len(resp_valid.json()) == 7
 
 
+def test_get_admin_affidavits_list(isolated_test_client):
+    """GET /api/v1/admin/affidavits returns list of candidate affidavits with disclosure breakdown."""
+    headers = {"X-Admin-Key": "dev-secret-key"}
+
+    resp = isolated_test_client.get("/api/v1/admin/affidavits", headers=headers)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert len(data) >= 1
+
+    first_aff = data[0]
+    assert first_aff["id"] == 1
+    assert first_aff["candidate_id"] == 1
+    assert "Candidate X" in first_aff["candidate_name"]
+    assert first_aff["disclosure_count"] == 7
+    assert first_aff["needs_review_count"] == 1
+
+
 def test_admin_patch_and_publication_gate(isolated_test_client):
     """Admin PATCH verifying spouse movable assets creates a ReviewEvent and unblocks public endpoint."""
     headers = {"X-Admin-Key": "dev-secret-key"}

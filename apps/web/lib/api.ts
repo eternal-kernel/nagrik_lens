@@ -97,6 +97,48 @@ export interface AdminDisclosureRead extends RenderedDisclosure {
   review_events: ReviewEvent[];
 }
 
+export interface AdminAffidavitListItem {
+  id: number;
+  candidate_id: number;
+  candidate_name: string;
+  filing_date: string;
+  processing_status: string;
+  publication_status: string;
+  disclosure_count: number;
+  needs_review_count: number;
+}
+
+export interface InspectionPageDiagnostic {
+  page_number: number;
+  char_count: number;
+  has_embedded_text: boolean;
+  extraction_method: string;
+}
+
+export interface PdfInspectionReport {
+  file_hash: string;
+  file_size_bytes: number;
+  page_count: number;
+  digital_pages: number;
+  scanned_pages: number;
+  ocr_available: boolean;
+  page_diagnostics: InspectionPageDiagnostic[];
+}
+
+export interface AffidavitUploadResponse {
+  affidavit: AffidavitSummary;
+  inspection: PdfInspectionReport;
+}
+
+export interface AffidavitExtractionResponse {
+  affidavit_id: number;
+  processing_status: string;
+  pages_inspected: number;
+  ocr_pages_detected: number;
+  disclosures_extracted: number;
+  warnings: string[];
+}
+
 export interface DisclosurePatchRequest {
   structured_value?: Record<string, any>;
   page_number?: number;
@@ -198,6 +240,70 @@ export async function patchAdminDisclosure(
     const errorBody = await res.json().catch(() => ({}));
     throw new Error(
       errorBody.detail || `Failed to update disclosure: ${res.statusText}`
+    );
+  }
+  return res.json();
+}
+
+export async function getAdminAffidavits(
+  adminKey: string
+): Promise<AdminAffidavitListItem[]> {
+  const res = await fetch(`${API_BASE}/admin/affidavits`, {
+    cache: "no-store",
+    headers: {
+      "X-Admin-Key": adminKey,
+    },
+  });
+  if (!res.ok) {
+    const errorBody = await res.json().catch(() => ({}));
+    throw new Error(
+      errorBody.detail || `Failed to fetch affidavits list: ${res.status}`
+    );
+  }
+  return res.json();
+}
+
+export async function uploadAdminAffidavit(
+  file: File,
+  candidateId: number | string,
+  filingDate: string | null = null,
+  sourceUrl: string | null = null,
+  adminKey: string
+): Promise<AffidavitUploadResponse> {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("candidate_id", String(candidateId));
+  if (filingDate) formData.append("filing_date", filingDate);
+  if (sourceUrl) formData.append("source_url", sourceUrl);
+
+  const res = await fetch(`${API_BASE}/admin/affidavits/upload`, {
+    method: "POST",
+    headers: {
+      "X-Admin-Key": adminKey,
+    },
+    body: formData,
+  });
+  if (!res.ok) {
+    const errorBody = await res.json().catch(() => ({}));
+    throw new Error(errorBody.detail || `Upload failed with status ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function extractAdminAffidavit(
+  affidavitId: number | string,
+  adminKey: string
+): Promise<AffidavitExtractionResponse> {
+  const res = await fetch(`${API_BASE}/admin/affidavits/${affidavitId}/extract`, {
+    method: "POST",
+    headers: {
+      "X-Admin-Key": adminKey,
+    },
+  });
+  if (!res.ok) {
+    const errorBody = await res.json().catch(() => ({}));
+    throw new Error(
+      errorBody.detail || `Extraction failed with status ${res.status}`
     );
   }
   return res.json();

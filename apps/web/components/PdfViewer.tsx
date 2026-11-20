@@ -29,7 +29,7 @@ export default function PdfViewer({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [pdfDoc, setPdfDoc] = useState<pdfjsLib.PDFDocumentProxy | null>(null);
   const [totalPages, setTotalPages] = useState<number>(1);
-  const [zoom, setZoom] = useState<number>(1.15);
+  const [zoom, setZoom] = useState<number>(1.0);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const renderTaskRef = useRef<any>(null);
@@ -138,7 +138,7 @@ export default function PdfViewer({
 
   const handleZoomIn = () => setZoom((prev) => Math.min(prev + 0.15, 2.0));
   const handleZoomOut = () => setZoom((prev) => Math.max(prev - 0.15, 0.7));
-  const handleZoomReset = () => setZoom(1.15);
+  const handleZoomReset = () => setZoom(1.0);
 
   return (
     <div className="flex h-full flex-col rounded-xl border border-civic-200 bg-civic-100/50 shadow-sm">
@@ -207,18 +207,18 @@ export default function PdfViewer({
       {/* PDF Canvas Viewport Container */}
       <div
         ref={containerRef}
-        className="relative flex flex-1 items-center justify-center overflow-auto p-4 md:p-6"
+        className="relative flex flex-1 items-start justify-start overflow-auto p-4 md:p-6"
         style={{ minHeight: "520px" }}
       >
         {loading && (
-          <div className="flex flex-col items-center gap-2 text-civic-500">
+          <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-civic-500 py-16 m-auto">
             <Loader2 className="h-8 w-8 animate-spin text-civic-600" />
             <span className="text-xs font-medium">Rendering affidavit page {currentPage}...</span>
           </div>
         )}
 
         {error && (
-          <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-center text-xs text-red-700">
+          <div className="m-auto rounded-lg border border-red-200 bg-red-50 p-4 text-center text-xs text-red-700">
             {error}
           </div>
         )}

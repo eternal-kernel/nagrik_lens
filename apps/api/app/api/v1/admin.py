@@ -11,6 +11,7 @@ from app.models.affidavit import Affidavit, Disclosure, ReviewEvent
 from app.models.election import Candidate
 from app.models.glossary import LegalGlossary
 from app.schemas.affidavit import (
+    AdminAffidavitListItem,
     AffidavitExtractionResponse,
     AffidavitSummary,
     AffidavitUploadResponse,
@@ -231,6 +232,53 @@ def extract_affidavit_admin(
         disclosures_extracted=len(result.disclosures),
         warnings=result.warnings,
     )
+
+
+@router.get(
+    "/affidavits",
+    response_model=List[AdminAffidavitListItem],
+)
+def list_admin_affidavits(
+    db: Session = Depends(get_db),
+):
+    """List all candidate affidavits with disclosure status counts for reviewer selection."""
+    affidavits = (
+        db.execute(
+            select(Affidavit)
+            .options(
+                selectinload(Affidavit.candidate),
+                selectinload(Affidavit.disclosures),
+            )
+            .order_by(Affidavit.id.asc())
+        )
+        .scalars()
+        .all()
+    )
+
+    results: List[AdminAffidavitListItem] = []
+    for aff in affidavits:
+        discs = aff.disclosures or []
+        disc_count = len(discs)
+        needs_review_count = sum(1 for d in discs if d.verification_status == "needs_review")
+        cand_name = (
+            aff.candidate.display_name
+            if aff.candidate
+            else f"Candidate #{aff.candidate_id}"
+        )
+
+        results.append(
+            AdminAffidavitListItem(
+                id=aff.id,
+                candidate_id=aff.candidate_id,
+                candidate_name=cand_name,
+                filing_date=aff.filing_date,
+                processing_status=aff.processing_status,
+                publication_status=aff.publication_status,
+                disclosure_count=disc_count,
+                needs_review_count=needs_review_count,
+            )
+        )
+    return results
 
 
 @router.get(

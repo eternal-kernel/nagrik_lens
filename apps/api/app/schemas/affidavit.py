@@ -30,3 +30,16 @@ class AffidavitExtractionResponse(BaseModel):
     ocr_pages_detected: int
     disclosures_extracted: int
     warnings: list[str] = []
+
+
+class AdminAffidavitListItem(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    candidate_id: int
+    candidate_name: str
+    filing_date: date
+    processing_status: str
+    publication_status: str
+    disclosure_count: int
+    needs_review_count: int

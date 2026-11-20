@@ -11,8 +11,19 @@ interface LegalGlossaryPillProps {
 export default function LegalGlossaryPill({ item }: LegalGlossaryPillProps) {
   const [isOpen, setIsOpen] = useState(false);
 
-  // Short display title
-  const displayLabel = item.code_key.replace("_", " ");
+  // Clean human-readable display title (no raw STAGE_ / CHARGES_ database keys)
+  const getDisplayLabel = (): string => {
+    const code = item.code_key.toUpperCase();
+    if (code.startsWith("IPC_") || code.startsWith("BNS_")) {
+      const section = item.code_key.replace("_", " ");
+      if (item.term.toUpperCase().includes(section.toUpperCase())) {
+        return item.term;
+      }
+      return `${section} — ${item.term}`;
+    }
+    // Procedural concepts: show human-readable term directly without raw key prefixes
+    return item.term;
+  };
 
   return (
     <div className="inline-block text-left">
@@ -26,7 +37,7 @@ export default function LegalGlossaryPill({ item }: LegalGlossaryPillProps) {
         aria-expanded={isOpen}
       >
         <BookOpen className="h-3 w-3 text-blue-600" />
-        <span>{displayLabel}: {item.term}</span>
+        <span>{getDisplayLabel()}</span>
         {isOpen ? (
           <ChevronUp className="h-3 w-3 text-blue-600" />
         ) : (
