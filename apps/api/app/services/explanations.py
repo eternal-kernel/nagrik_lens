@@ -247,6 +247,27 @@ def build_explanation(
 
     # 5. Pending Criminal Cases
     elif cat == "pending_criminal_cases":
+        is_nil = (val.get("count") == 0) or (
+            str(val.get("status", "")).strip().upper() in {"NIL", "NONE", "NOT APPLICABLE", "NA"}
+        )
+        if is_nil:
+            if lang == "te":
+                explanation = (
+                    "ఫారం 26 అఫిడవిట్లోని ఐటెమ్ (5) లో అభ్యర్థి ప్రకటించిన వివరాల ప్రకారం: "
+                    "ఎలాంటి క్రిమినల్ కేసులు పెండింగ్లో లేవు (పెండింగ్ క్రిమినల్ కేసులు: ఏమీ లేవు / NIL)."
+                )
+            elif lang == "hi":
+                explanation = (
+                    "फॉर्म 26 शपथ पत्र के मद (5) में उम्मीदवार द्वारा घोषित विवरण के अनुसार: "
+                    "कोई भी आपराधिक मामला लंबित नहीं है (लंबित आपराधिक मामले: शून्य / NIL)।"
+                )
+            else:
+                explanation = (
+                    "Declared by the candidate in Item (5) of the Form 26 affidavit: "
+                    "no pending criminal cases declared (Pending Criminal Cases: NIL)."
+                )
+            return explanation, []
+
         fir_no = val.get("fir_no", "N/A")
         ps = val.get("police_station", "N/A")
         case_no = val.get("case_no", "N/A")
@@ -315,20 +336,21 @@ def build_explanation(
     elif cat == "convictions":
         count = val.get("count", 0)
         status_code = val.get("status", "NIL")
+        status_str = status_code if status_code else "NIL"
         if lang == "te":
             explanation = (
                 f"ఫారం 26 అఫిడవిట్‌లోని ఐటెమ్ (6) లో అభ్యర్థి స్వయంగా ప్రకటించిన ప్రకారం: "
-                f"అభ్యర్థికి ఏ న్యాయస్థానం ద్వారా కూడా ఎలాంటి నేరంలోనూ శిక్ష పడలేదు (దోష నిర్ధారణలు: ఏమీ లేవు / {status_code})."
+                f"అభ్యర్థికి ఏ న్యాయస్థానం ద్వారా కూడా ఎలాంటి నేరంలోనూ శిక్ష పడలేదు (దోష నిర్ధారణలు: ఏమీ లేవు / {status_str})."
             )
         elif lang == "hi":
             explanation = (
                 f"फॉर्म 26 शपथ पत्र के मद (6) में उम्मीदवार द्वारा घोषित विवरण के अनुसार: "
-                f"उम्मीदवार को किसी भी अदालत द्वारा किसी भी आपराधिक मामले में कभी दोषी नहीं ठहराया गया है (दोषसिद्धि: शून्य / {status_code})।"
+                f"उम्मीदवार को किसी भी अदालत द्वारा किसी भी आपराधिक मामले में कभी दोषी नहीं ठहराया गया है (दोषसिद्धि: शून्य / {status_str})।"
             )
         else:
             explanation = (
                 f"Declared by the candidate in Item (6) of the Form 26 affidavit: "
-                f"candidate has never been convicted of any criminal offence by any court of law (Convictions: {status_code})."
+                f"no criminal convictions declared (Convictions: {status_str})."
             )
 
     # Fallback default for unexpected category

@@ -480,3 +480,90 @@ def test_admin_patch_and_publication_gate(isolated_test_client):
     assert spouse_now_public is not None
     assert spouse_now_public["verification_status"] == "verified"
     assert "₹3.2 lakh" in spouse_now_public["explanation"]
+
+
+def test_nil_pending_criminal_cases_explanation(isolated_test_client):
+    """Regression test: NIL pending criminal cases must render clean NIL text without N/A or glossary items."""
+    # Seed Candidate Z with a NIL pending criminal cases disclosure
+    db = next(app.dependency_overrides[get_db]())
+    try:
+        cand_z = Candidate(
+            constituency_id=1,
+            name="Ananya Sharma",
+            display_name="Ananya Sharma (Fictional Sample)",
+            party_name="Progressive Alliance — Fictional",
+            is_fictional=True,
+        )
+        db.add(cand_z)
+        db.flush()
+
+        affidavit_z = Affidavit(
+            candidate_id=cand_z.id,
+            source_url="https://eci.gov.in/fictional/candidate_z_form26.pdf",
+            file_path="fixtures/fictional/candidate_z_affidavit.pdf",
+            file_hash="dummy_hash_z",
+            filing_date=date(2024, 4, 17),
+            processing_status="processed",
+            publication_status="published",
+            redaction_boxes=None,
+        )
+        db.add(affidavit_z)
+        db.flush()
+
+        disc_z = Disclosure(
+            affidavit_id=affidavit_z.id,
+            category="pending_criminal_cases",
+            field_key="pending_cases_summary",
+            subject_type="self",
+            page_number=4,
+            verification_status="verified",
+            structured_value={"count": 0, "status": "NIL"},
+            raw_excerpt="Item (5) Pending Criminal Cases: NIL / NOT APPLICABLE",
+        )
+        db.add(disc_z)
+        db.commit()
+        affidavit_z_id = affidavit_z.id
+    finally:
+        db.close()
+
+    # 1. English
+    resp_en = isolated_test_client.get(f"/api/v1/affidavits/{affidavit_z_id}/disclosures?lang=en")
+    assert resp_en.status_code == 200
+    discs_en = resp_en.json()
+    assert len(discs_en) == 1
+    d_en = discs_en[0]
+    expected_en = "Declared by the candidate in Item (5) of the Form 26 affidavit: no pending criminal cases declared (Pending Criminal Cases: NIL)."
+    assert d_en["explanation"] == expected_en
+    assert "1 pending criminal case" not in d_en["explanation"]
+    assert "N/A" not in d_en["explanation"]
+    assert len(d_en["glossary_items"]) == 0
+
+    # 2. Telugu
+    resp_te = isolated_test_client.get(f"/api/v1/affidavits/{affidavit_z_id}/disclosures?lang=te")
+    assert resp_te.status_code == 200
+    discs_te = resp_te.json()
+    assert len(discs_te) == 1
+    d_te = discs_te[0]
+    expected_te = "ఫారం 26 అఫిడవిట్లోని ఐటెమ్ (5) లో అభ్యర్థి ప్రకటించిన వివరాల ప్రకారం: ఎలాంటి క్రిమినల్ కేసులు పెండింగ్లో లేవు (పెండింగ్ క్రిమినల్ కేసులు: ఏమీ లేవు / NIL)."
+    assert d_te["explanation"] == expected_te
+    assert "1 క్రిమినల్ కేసు" not in d_te["explanation"]
+    assert "N/A" not in d_te["explanation"]
+    assert len(d_te["glossary_items"]) == 0
+
+    # 3. Hindi
+    resp_hi = isolated_test_client.get(f"/api/v1/affidavits/{affidavit_z_id}/disclosures?lang=hi")
+    assert resp_hi.status_code == 200
+    discs_hi = resp_hi.json()
+    assert len(discs_hi) == 1
+    d_hi = discs_hi[0]
+    expected_hi = "फॉर्म 26 शपथ पत्र के मद (5) में उम्मीदवार द्वारा घोषित विवरण के अनुसार: कोई भी आपराधिक मामला लंबित नहीं है (लंबित आपराधिक मामले: शून्य / NIL)।"
+    assert d_hi["explanation"] == expected_hi
+    assert "1 आपराधिक मामला" not in d_hi["explanation"]
+    assert "N/A" not in d_hi["explanation"]
+    assert len(d_hi["glossary_items"]) == 0
+
+    # Also verify Candidate X convictions wording in English is tightened
+    resp_conv = isolated_test_client.get("/api/v1/affidavits/1/disclosures?lang=en")
+    assert resp_conv.status_code == 200
+    conv_disc = next(d for d in resp_conv.json() if d["category"] == "convictions")
+    assert conv_disc["explanation"] == "Declared by the candidate in Item (6) of the Form 26 affidavit: no criminal convictions declared (Convictions: NIL)."

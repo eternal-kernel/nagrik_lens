@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, ChangeEvent, DragEvent } from "react";
+import { useState, useRef, useEffect, ChangeEvent, DragEvent } from "react";
 import Link from "next/link";
 import { useLanguage } from "@/lib/language-context";
 import { scanPosterImage, PosterScanResponse, CandidateMatchItem } from "@/lib/api";
@@ -20,6 +20,7 @@ import {
   Sparkles,
   Info,
   Scale,
+  Video,
 } from "lucide-react";
 
 export default function PosterScannerPage() {
@@ -29,12 +30,110 @@ export default function PosterScannerPage() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [cameraError, setCameraError] = useState<string | null>(null);
   const [result, setResult] = useState<PosterScanResponse | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [showRawOcr, setShowRawOcr] = useState(false);
+  const [isCameraActive, setIsCameraActive] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+
+  // Clean up media streams on unmount
+  useEffect(() => {
+    return () => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop());
+        streamRef.current = null;
+      }
+    };
+  }, []);
+
+  const startCamera = async () => {
+    try {
+      setCameraError(null);
+      setError(null);
+
+      if (!navigator?.mediaDevices?.getUserMedia) {
+        setCameraError(t("scan_camera_denied"));
+        return;
+      }
+
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment", width: { ideal: 1920 }, height: { ideal: 1080 } },
+        audio: false,
+      });
+
+      streamRef.current = stream;
+      setIsCameraActive(true);
+
+      // Connect stream to video element once state re-renders
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.play().catch((playErr) => {
+            console.warn("Video play error:", playErr);
+          });
+        }
+      }, 50);
+    } catch (err: any) {
+      console.warn("Camera access denied or failed:", err);
+      setIsCameraActive(false);
+      setCameraError(t("scan_camera_denied"));
+    }
+  };
+
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+    setIsCameraActive(false);
+  };
+
+  const captureFrame = () => {
+    if (!videoRef.current) return;
+    const video = videoRef.current;
+
+    const width = video.videoWidth || 1280;
+    const height = video.videoHeight || 720;
+
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      setError("Failed to initialize canvas for capture.");
+      stopCamera();
+      return;
+    }
+
+    ctx.drawImage(video, 0, 0, width, height);
+
+    // Stop camera stream immediately upon capture
+    stopCamera();
+
+    canvas.toBlob(
+      async (blob) => {
+        if (!blob) {
+          setError("Failed to create image file from camera capture.");
+          return;
+        }
+        const capturedFile = new File([blob], `camera_scan_${Date.now()}.jpg`, {
+          type: "image/jpeg",
+        });
+        await handleFileSelect(capturedFile);
+      },
+      "image/jpeg",
+      0.92
+    );
+  };
 
   const handleFileSelect = async (selectedFile: File) => {
     // Basic client validation
@@ -47,6 +146,9 @@ export default function PosterScannerPage() {
       return;
     }
 
+    // Stop camera if still running
+    stopCamera();
+
     // Clean up previous preview URL
     if (previewUrl) {
       URL.revokeObjectURL(previewUrl);
@@ -56,6 +158,7 @@ export default function PosterScannerPage() {
     setFile(selectedFile);
     setPreviewUrl(objectUrl);
     setError(null);
+    setCameraError(null);
     setResult(null);
 
     // Automatically trigger scan for a smooth camera-to-result experience
@@ -104,6 +207,7 @@ export default function PosterScannerPage() {
   };
 
   const handleClear = () => {
+    stopCamera();
     if (previewUrl) {
       URL.revokeObjectURL(previewUrl);
     }
@@ -111,6 +215,7 @@ export default function PosterScannerPage() {
     setPreviewUrl(null);
     setResult(null);
     setError(null);
+    setCameraError(null);
     setShowRawOcr(false);
     if (fileInputRef.current) fileInputRef.current.value = "";
     if (cameraInputRef.current) cameraInputRef.current.value = "";
@@ -174,7 +279,7 @@ export default function PosterScannerPage() {
               {t("scan_dropzone_title")}
             </h2>
 
-            {/* Hidden inputs */}
+            {/* Hidden file inputs */}
             <input
               type="file"
               ref={fileInputRef}
@@ -191,8 +296,72 @@ export default function PosterScannerPage() {
               className="hidden"
             />
 
-            {!previewUrl ? (
-              /* Dropzone empty state */
+            {/* Camera Permission Denied Warning */}
+            {cameraError && !isCameraActive && (
+              <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3.5 text-xs text-amber-900">
+                <div className="flex items-start gap-2.5">
+                  <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600" />
+                  <div className="space-y-1">
+                    <p className="font-semibold">{cameraError}</p>
+                    <p className="text-[11px] text-amber-800">
+                      You can select a photo directly from your library or files below.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* View 1: Active Live Camera Viewfinder */}
+            {isCameraActive ? (
+              <div className="space-y-4">
+                <div className="relative overflow-hidden rounded-xl border border-civic-900 bg-black shadow-inner">
+                  <video
+                    ref={videoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    className="max-h-96 w-full object-cover"
+                  />
+
+                  {/* Viewfinder Target Overlay */}
+                  <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-6">
+                    <div className="relative h-4/5 w-4/5 rounded-lg border-2 border-dashed border-white/60 shadow-[0_0_0_9999px_rgba(0,0,0,0.35)]">
+                      <div className="absolute -top-1 -left-1 h-4 w-4 border-t-2 border-l-2 border-emerald-400" />
+                      <div className="absolute -top-1 -right-1 h-4 w-4 border-t-2 border-r-2 border-emerald-400" />
+                      <div className="absolute -bottom-1 -left-1 h-4 w-4 border-b-2 border-l-2 border-emerald-400" />
+                      <div className="absolute -bottom-1 -right-1 h-4 w-4 border-b-2 border-r-2 border-emerald-400" />
+                    </div>
+                  </div>
+
+                  {/* Blinking Live Indicator */}
+                  <div className="absolute top-3 left-3 flex items-center gap-1.5 rounded-full bg-black/60 px-2.5 py-1 text-[10px] font-bold tracking-wide text-white backdrop-blur-sm">
+                    <span className="h-2 w-2 animate-ping rounded-full bg-emerald-400" />
+                    <span>LIVE CAMERA</span>
+                  </div>
+                </div>
+
+                {/* Camera Actions */}
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={captureFrame}
+                    className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-xs font-bold text-white shadow-md transition hover:bg-emerald-700"
+                  >
+                    <Camera className="h-4 w-4" />
+                    <span>{t("scan_capture_btn")}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={stopCamera}
+                    className="flex items-center justify-center gap-1.5 rounded-xl border border-civic-300 bg-white px-4 py-3 text-xs font-semibold text-civic-700 transition hover:bg-civic-50"
+                  >
+                    <X className="h-4 w-4 text-civic-500" />
+                    <span>{t("scan_cancel_camera")}</span>
+                  </button>
+                </div>
+              </div>
+            ) : !previewUrl ? (
+              /* View 2: Drag & Drop Dropzone + Camera Button */
               <div
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
@@ -214,18 +383,18 @@ export default function PosterScannerPage() {
                   {t("scan_dropzone_desc")}
                 </p>
 
-                {/* Mobile Camera Option Button */}
-                <div className="mt-5 flex flex-wrap justify-center gap-2">
+                {/* Primary Camera & Upload Action Buttons */}
+                <div className="mt-5 flex flex-wrap justify-center gap-2.5">
                   <button
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
-                      cameraInputRef.current?.click();
+                      startCamera();
                     }}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-civic-900 px-3.5 py-2 text-xs font-semibold text-white shadow-sm hover:bg-civic-800"
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-700 px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-indigo-800"
                   >
-                    <Camera className="h-3.5 w-3.5" />
-                    <span>{t("scan_take_photo")}</span>
+                    <Video className="h-3.5 w-3.5" />
+                    <span>{t("scan_live_camera")}</span>
                   </button>
                   <button
                     type="button"
@@ -233,7 +402,7 @@ export default function PosterScannerPage() {
                       e.stopPropagation();
                       fileInputRef.current?.click();
                     }}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-civic-300 bg-white px-3.5 py-2 text-xs font-semibold text-civic-700 shadow-sm hover:bg-civic-50"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-civic-300 bg-white px-3.5 py-2 text-xs font-semibold text-civic-700 shadow-sm transition hover:bg-civic-50"
                   >
                     <UploadCloud className="h-3.5 w-3.5" />
                     <span>Browse Files</span>
@@ -241,7 +410,7 @@ export default function PosterScannerPage() {
                 </div>
               </div>
             ) : (
-              /* Image preview with clear/rescan */
+              /* View 3: Image Preview with Clear / Scan Another */
               <div className="space-y-4">
                 <div className="relative overflow-hidden rounded-xl border border-civic-200 bg-civic-900/5">
                   <img
@@ -315,17 +484,19 @@ export default function PosterScannerPage() {
             </div>
           )}
 
-          {/* Empty Prompt Before Upload */}
+          {/* Empty Prompt Before Upload / While Camera is Active */}
           {!scanning && !result && !error && (
             <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-civic-300 bg-white p-12 text-center shadow-sm">
               <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-civic-100 text-civic-500">
                 <Search className="h-7 w-7 text-civic-600" />
               </div>
               <h3 className="mt-4 text-base font-bold text-civic-900">
-                Ready to Scan Poster
+                {isCameraActive ? "Point Camera at Street Poster" : "Ready to Scan Poster"}
               </h3>
               <p className="mt-1.5 max-w-sm text-xs leading-relaxed text-civic-500">
-                Photograph or upload any campaign flexi-banner. We will extract text and match it against our database of verified Form 26 sworn affidavits.
+                {isCameraActive
+                  ? "Align the campaign flexi-banner within the viewfinder frame and tap 'Capture & Scan'."
+                  : "Photograph or upload any campaign flexi-banner. We will extract text and match it against our database of verified Form 26 sworn affidavits."}
               </p>
             </div>
           )}

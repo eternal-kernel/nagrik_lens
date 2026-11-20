@@ -67,5 +67,9 @@
   "scan_matched_signals": "Matched Signals:",
   "scan_raw_ocr_title": "Inspect Raw Extracted OCR Text",
   "scan_raw_ocr_desc": "Full transparent text extracted via optical character recognition (OCR) with zero black-box AI alterations:",
-  "scan_error_title": "Poster Scan Failed"
+  "scan_error_title": "Poster Scan Failed",
+  "scan_live_camera": "Scan with Camera",
+  "scan_capture_btn": "Capture & Scan",
+  "scan_cancel_camera": "Cancel Camera",
+  "scan_camera_denied": "Camera permission was denied or is unavailable. You can still upload a photo directly."
 }
