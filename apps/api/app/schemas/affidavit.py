@@ -16,3 +16,17 @@ class AffidavitSummary(BaseModel):
     publication_status: str
     redaction_boxes: Optional[Dict[str, Any]] = None
     created_at: datetime
+
+
+class AffidavitUploadResponse(BaseModel):
+    affidavit: AffidavitSummary
+    inspection: Dict[str, Any]
+
+
+class AffidavitExtractionResponse(BaseModel):
+    affidavit_id: int
+    processing_status: str
+    pages_inspected: int
+    ocr_pages_detected: int
+    disclosures_extracted: int
+    warnings: list[str] = []

@@ -1,5 +1,9 @@
 from app.schemas.election import ConstituencyRead, ElectionRead
-from app.schemas.affidavit import AffidavitSummary
+from app.schemas.affidavit import (
+    AffidavitSummary,
+    AffidavitUploadResponse,
+    AffidavitExtractionResponse,
+)
 from app.schemas.candidate import CandidateSummary, CandidateDetail
 from app.schemas.glossary import LegalGlossaryItem
 from app.schemas.disclosure import (
@@ -13,6 +17,8 @@ __all__ = [
     "ConstituencyRead",
     "ElectionRead",
     "AffidavitSummary",
+    "AffidavitUploadResponse",
+    "AffidavitExtractionResponse",
     "CandidateSummary",
     "CandidateDetail",
     "LegalGlossaryItem",

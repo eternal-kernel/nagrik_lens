@@ -1,24 +1,236 @@
-from datetime import datetime, timezone
-from typing import List
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from datetime import date, datetime, timezone
+from pathlib import Path
+import re
+from typing import List, Optional
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.api.deps import get_db, verify_admin_key
 from app.models.affidavit import Affidavit, Disclosure, ReviewEvent
+from app.models.election import Candidate
 from app.models.glossary import LegalGlossary
+from app.schemas.affidavit import (
+    AffidavitExtractionResponse,
+    AffidavitSummary,
+    AffidavitUploadResponse,
+)
 from app.schemas.disclosure import (
     AdminDisclosureRead,
     DisclosurePatchRequest,
     ReviewEventRead,
 )
 from app.services.explanations import build_explanation
+from app.services.pdf_pipeline import (
+    extract_affidavit_disclosures,
+    inspect_pdf_content,
+)
 
 router = APIRouter(
     prefix="/admin",
     tags=["Admin"],
     dependencies=[Depends(verify_admin_key)],
 )
+
+
+def get_workspace_root() -> Path:
+    """Find the workspace root containing 'fixtures' and 'apps'."""
+    current = Path(__file__).resolve()
+    for parent in current.parents:
+        if (parent / "fixtures").exists() and (parent / "apps").exists():
+            return parent
+    return current.parents[4].parent
+
+
+WORKSPACE_ROOT = get_workspace_root()
+
+
+@router.post(
+    "/affidavits/upload",
+    response_model=AffidavitUploadResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def upload_affidavit_admin(
+    file: UploadFile = File(..., description="ECI Form 26 PDF document"),
+    candidate_id: int = Form(..., description="ID of candidate filing this affidavit"),
+    filing_date: Optional[str] = Form(None, description="Filing date in YYYY-MM-DD format"),
+    source_url: Optional[str] = Form(None, description="Original source or ECI URL"),
+    db: Session = Depends(get_db),
+):
+    """Upload and validate an ECI Form 26 PDF, storing it locally in uploads/affidavits/."""
+    # 1. Verify candidate exists
+    candidate = db.execute(
+        select(Candidate).where(Candidate.id == candidate_id)
+    ).scalar_one_or_none()
+    if candidate is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Candidate with ID {candidate_id} not found",
+        )
+
+    # 2. Parse filing date
+    if filing_date:
+        try:
+            parsed_date = date.fromisoformat(filing_date)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid filing_date format. Expected YYYY-MM-DD.",
+            )
+    else:
+        parsed_date = date.today()
+
+    # 3. Read and validate PDF content
+    try:
+        content = await file.read()
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to read uploaded file: {e}",
+        )
+
+    try:
+        inspection = inspect_pdf_content(content)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"PDF validation failed: {e}",
+        )
+
+    # 4. Save to uploads/affidavits/<hash_prefix>_<filename>.pdf
+    safe_name = re.sub(r"[^a-zA-Z0-9_.-]", "_", file.filename or "affidavit.pdf")
+    stored_name = f"{inspection.file_hash[:12]}_{safe_name}"
+    uploads_dir = WORKSPACE_ROOT / "uploads" / "affidavits"
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+    destination_path = uploads_dir / stored_name
+
+    with open(destination_path, "wb") as f:
+        f.write(content)
+
+    relative_path = f"uploads/affidavits/{stored_name}"
+
+    # 5. Create Affidavit DB record
+    affidavit = Affidavit(
+        candidate_id=candidate_id,
+        source_url=source_url,
+        file_path=relative_path,
+        file_hash=inspection.file_hash,
+        filing_date=parsed_date,
+        processing_status="uploaded",
+        publication_status="draft",
+        redaction_boxes=None,
+        created_at=datetime.now(timezone.utc),
+    )
+    db.add(affidavit)
+    db.commit()
+    db.refresh(affidavit)
+
+    return AffidavitUploadResponse(
+        affidavit=AffidavitSummary.model_validate(affidavit),
+        inspection=inspection.to_dict(),
+    )
+
+
+@router.post(
+    "/affidavits/{affidavit_id}/extract",
+    response_model=AffidavitExtractionResponse,
+)
+def extract_affidavit_admin(
+    affidavit_id: int,
+    db: Session = Depends(get_db),
+):
+    """Run deterministic extraction on an affidavit PDF, generating draft disclosures marked 'needs_review'."""
+    affidavit = db.execute(
+        select(Affidavit).where(Affidavit.id == affidavit_id)
+    ).scalar_one_or_none()
+    if affidavit is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Affidavit with ID {affidavit_id} not found",
+        )
+
+    raw_path = Path(affidavit.file_path)
+    full_path = raw_path if raw_path.is_absolute() else (WORKSPACE_ROOT / raw_path)
+
+    if not full_path.exists() or not full_path.is_file():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Affidavit PDF file not found on disk at: {affidavit.file_path}",
+        )
+
+    try:
+        result = extract_affidavit_disclosures(full_path)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Extraction pipeline failed: {e}",
+        )
+
+    # Insert or update draft disclosures
+    now_utc = datetime.now(timezone.utc)
+    for item in result.disclosures:
+        existing = db.execute(
+            select(Disclosure).where(
+                Disclosure.affidavit_id == affidavit.id,
+                Disclosure.category == item.category,
+                Disclosure.field_key == item.field_key,
+                Disclosure.subject_type == item.subject_type,
+            )
+        ).scalar_one_or_none()
+
+        if existing is not None:
+            # CRITICAL TRUST RULE: Never overwrite a disclosure already approved by human reviewer
+            if existing.verification_status == "verified":
+                continue
+            existing.structured_value = item.structured_value
+            existing.raw_excerpt = item.raw_excerpt
+            existing.page_number = item.page_number
+            existing.updated_at = now_utc
+        else:
+            new_disc = Disclosure(
+                affidavit_id=affidavit.id,
+                category=item.category,
+                field_key=item.field_key,
+                subject_type=item.subject_type,
+                structured_value=item.structured_value,
+                raw_excerpt=item.raw_excerpt,
+                page_number=item.page_number,
+                verification_status="needs_review",  # CRITICAL: Always needs_review
+                created_at=now_utc,
+                updated_at=now_utc,
+            )
+            db.add(new_disc)
+            db.flush()
+
+            # Record automated extraction review event
+            db.add(
+                ReviewEvent(
+                    disclosure_id=new_disc.id,
+                    reviewer_name="Automated PDF Extractor",
+                    action="auto_extracted",
+                    previous_value=None,
+                    new_value={
+                        "verification_status": "needs_review",
+                        "confidence": item.confidence_note,
+                    },
+                    review_note=f"Extracted via deterministic Form 26 pipeline ({item.confidence_note})",
+                    created_at=now_utc,
+                )
+            )
+
+    affidavit.processing_status = (
+        "extracted_with_warnings" if result.warnings else "extracted"
+    )
+    db.commit()
+
+    return AffidavitExtractionResponse(
+        affidavit_id=affidavit.id,
+        processing_status=affidavit.processing_status,
+        pages_inspected=result.inspection.page_count,
+        ocr_pages_detected=result.inspection.scanned_pages,
+        disclosures_extracted=len(result.disclosures),
+        warnings=result.warnings,
+    )
 
 
 @router.get(
