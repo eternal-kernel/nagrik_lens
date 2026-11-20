@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useLanguage, SupportedLang } from "@/lib/language-context";
-import { Globe, ShieldCheck, CheckSquare } from "lucide-react";
+import { Globe, ShieldCheck, CheckSquare, Camera } from "lucide-react";
 
 export default function Navbar() {
   const { lang, setLang, t } = useLanguage();
@@ -33,6 +33,17 @@ export default function Navbar() {
 
         {/* Right Nav / Language Switcher */}
         <div className="flex items-center gap-2 sm:gap-3">
+          {/* Scan Poster Link */}
+          <Link
+            href="/scan"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-civic-300 bg-civic-50 px-2.5 py-1 text-xs font-semibold text-civic-800 transition hover:border-civic-400 hover:bg-civic-100"
+            title="Scan Campaign Poster"
+          >
+            <Camera className="h-3.5 w-3.5 text-civic-700" />
+            <span className="hidden sm:inline">{t("scan_nav")}</span>
+            <span className="sm:hidden">Scan</span>
+          </Link>
+
           {/* Subtle Reviewer Console link for demonstrations */}
           <Link
             href="/admin/review"

@@ -13,6 +13,7 @@ import {
   Info,
   CheckCircle2,
   ChevronRight,
+  Camera,
 } from "lucide-react";
 
 export default function HomePage() {
@@ -43,6 +44,28 @@ export default function HomePage() {
               name: "Candidate X",
               display_name: "Candidate X (Fictional Sample)",
               party_name: "Independent — Fictional",
+              is_fictional: true,
+              created_at: new Date().toISOString(),
+              constituency_name: "Fictional Constituency",
+              election_name: "Telangana Legislative Assembly General Election 2024",
+            },
+            {
+              id: 2,
+              constituency_id: 1,
+              name: "Kiran Rao",
+              display_name: "Kiran Rao (Fictional Sample)",
+              party_name: "Civic Reform Front — Fictional",
+              is_fictional: true,
+              created_at: new Date().toISOString(),
+              constituency_name: "Fictional Constituency",
+              election_name: "Telangana Legislative Assembly General Election 2024",
+            },
+            {
+              id: 3,
+              constituency_id: 1,
+              name: "Ananya Sharma",
+              display_name: "Ananya Sharma (Fictional Sample)",
+              party_name: "Progressive Alliance — Fictional",
               is_fictional: true,
               created_at: new Date().toISOString(),
               constituency_name: "Fictional Constituency",
@@ -113,6 +136,38 @@ export default function HomePage() {
                 </span>
               </div>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Street Poster Scanner CTA Banner */}
+      <section className="mb-12">
+        <div className="overflow-hidden rounded-2xl border border-indigo-200 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 p-6 text-white shadow-md sm:p-8">
+          <div className="flex flex-col items-start justify-between gap-6 sm:flex-row sm:items-center">
+            <div className="flex items-start gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-indigo-500/20 text-indigo-300 ring-1 ring-indigo-400/30">
+                <Camera className="h-6 w-6 text-indigo-300" />
+              </div>
+              <div className="space-y-1">
+                <span className="inline-block rounded-full bg-indigo-400/10 px-2.5 py-0.5 text-[11px] font-bold tracking-wider text-indigo-300 uppercase ring-1 ring-indigo-400/30">
+                  Instant Verification
+                </span>
+                <h3 className="text-xl font-bold tracking-tight text-white">
+                  {t("scan_hero_cta")}
+                </h3>
+                <p className="text-sm text-slate-300">
+                  {t("scan_subtitle")}
+                </p>
+              </div>
+            </div>
+
+            <Link
+              href="/scan"
+              className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-bold text-slate-900 shadow-sm transition hover:bg-slate-100 hover:shadow"
+            >
+              <Camera className="h-4 w-4 text-slate-900" />
+              <span>{t("scan_hero_cta_btn")}</span>
+            </Link>
           </div>
         </div>
       </section>

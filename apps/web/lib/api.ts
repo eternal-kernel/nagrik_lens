@@ -139,6 +139,27 @@ export interface AffidavitExtractionResponse {
   warnings: string[];
 }
 
+export interface CandidateMatchItem {
+  candidate_id: number;
+  name: string;
+  display_name: string;
+  party_name: string;
+  constituency_name: string;
+  constituency_code?: string | null;
+  election_name?: string | null;
+  confidence: number;
+  matched_terms: string[];
+}
+
+export interface PosterScanResponse {
+  ocr_text: string;
+  matches: CandidateMatchItem[];
+  requires_disambiguation: boolean;
+  detected_constituency?: string | null;
+  detected_party?: string | null;
+  message?: string | null;
+}
+
 export interface DisclosurePatchRequest {
   structured_value?: Record<string, any>;
   page_number?: number;
@@ -304,6 +325,29 @@ export async function extractAdminAffidavit(
     const errorBody = await res.json().catch(() => ({}));
     throw new Error(
       errorBody.detail || `Extraction failed with status ${res.status}`
+    );
+  }
+  return res.json();
+}
+
+export async function scanPosterImage(
+  file: File,
+  constituencyId?: number | null
+): Promise<PosterScanResponse> {
+  const formData = new FormData();
+  formData.append("file", file);
+  let url = `${API_BASE}/poster/scan`;
+  if (constituencyId != null) {
+    url += `?constituency_id=${constituencyId}`;
+  }
+  const res = await fetch(url, {
+    method: "POST",
+    body: formData,
+  });
+  if (!res.ok) {
+    const errorBody = await res.json().catch(() => ({}));
+    throw new Error(
+      errorBody.detail || `Poster scan failed with status ${res.status}`
     );
   }
   return res.json();
