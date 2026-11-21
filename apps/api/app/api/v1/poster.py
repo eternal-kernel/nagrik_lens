@@ -10,6 +10,7 @@ router = APIRouter(tags=["Poster Scanner"])
 
 
 @router.post("/poster/scan", response_model=PosterScanResponse)
+@router.post("/scan", response_model=PosterScanResponse)
 async def scan_campaign_poster(
     file: UploadFile = File(..., description="Campaign poster image file (JPEG, PNG, WebP)"),
     constituency_id: Optional[int] = Query(None, description="Optional constituency ID to filter or boost matching candidates"),

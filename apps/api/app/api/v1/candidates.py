@@ -7,6 +7,11 @@ from app.api.deps import get_db
 from app.models.election import Candidate, Constituency, Election
 from app.schemas.candidate import CandidateDetail, CandidateSummary
 from app.schemas.election import ConstituencyRead, ElectionRead
+from app.schemas.public_record import PublicActivityRecordOut
+from app.services.public_records import (
+    get_verified_public_records,
+    render_public_record_explanations,
+)
 
 router = APIRouter(tags=["Candidates"])
 
@@ -54,6 +59,7 @@ def get_candidates(
                 display_name=cand.display_name,
                 party_name=cand.party_name,
                 is_fictional=cand.is_fictional,
+                prior_office_held=cand.prior_office_held,
                 created_at=cand.created_at,
                 constituency_name=const_name,
                 election_name=elec_name,
@@ -64,7 +70,7 @@ def get_candidates(
 
 @router.get("/candidates/{candidate_id}", response_model=CandidateDetail)
 def get_candidate(candidate_id: int, db: Session = Depends(get_db)):
-    """Get full details for a candidate including election, constituency, and affidavits."""
+    """Get full details for a candidate including election, constituency, affidavits, and verified 5-year public records."""
     stmt = (
         select(Candidate)
         .options(
@@ -88,6 +94,22 @@ def get_candidate(candidate_id: int, db: Session = Depends(get_db)):
         else None
     )
 
+    # Hard publication gate: Query PublicActivityRecord strictly filtered by verification_status == "verified"
+    verified_records = get_verified_public_records(candidate.id, db)
+    public_records_out = [
+        PublicActivityRecordOut(
+            id=rec.id,
+            record_type=rec.record_type,
+            period_label=rec.period_label,
+            source_name=rec.source_name,
+            source_url=rec.source_url,
+            structured_payload=rec.structured_payload or {},
+            explanations=render_public_record_explanations(rec),
+            verification_status=rec.verification_status,
+        )
+        for rec in verified_records
+    ]
+
     return CandidateDetail(
         id=candidate.id,
         constituency_id=candidate.constituency_id,
@@ -95,8 +117,10 @@ def get_candidate(candidate_id: int, db: Session = Depends(get_db)):
         display_name=candidate.display_name,
         party_name=candidate.party_name,
         is_fictional=candidate.is_fictional,
+        prior_office_held=candidate.prior_office_held,
         created_at=candidate.created_at,
         constituency=constituency_read,
         election=election_read,
         affidavits=candidate.affidavits,
+        public_records=public_records_out,
     )

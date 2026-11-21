@@ -21,6 +21,7 @@ import {
   Info,
   Scale,
   Video,
+  Landmark,
 } from "lucide-react";
 
 export default function PosterScannerPage() {
@@ -715,6 +716,64 @@ function CandidateCard({
                 </span>
               ))}
             </div>
+          </div>
+        )}
+
+        {/* 5-Year Public Record Preview Strip */}
+        {candidate.five_year_preview && (
+          <div className="pt-2">
+            {candidate.five_year_preview.is_incumbent ? (
+              <div className="space-y-2 rounded-xl border border-emerald-200 bg-emerald-50/60 p-3 text-xs">
+                <div className="flex flex-wrap items-center justify-between gap-1.5">
+                  <div className="flex items-center gap-1.5 font-bold text-emerald-950">
+                    <Landmark className="h-3.5 w-3.5 text-emerald-700" />
+                    <span>{t("label_incumbent")}</span>
+                  </div>
+                  {candidate.five_year_preview.prior_office_held && (
+                    <span className="text-[11px] font-medium text-emerald-800">
+                      {candidate.five_year_preview.prior_office_held}
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 pt-0.5 text-[11px]">
+                  {candidate.five_year_preview.works_completed != null &&
+                    candidate.five_year_preview.works_recommended != null && (
+                      <span className="inline-flex items-center gap-1 rounded bg-white px-2 py-0.5 font-medium text-civic-800 shadow-xs ring-1 ring-civic-200/80">
+                        <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                        <span className="font-bold">
+                          {candidate.five_year_preview.works_completed}/
+                          {candidate.five_year_preview.works_recommended}
+                        </span>{" "}
+                        {t("label_works_completed")}
+                      </span>
+                    )}
+
+                  {candidate.five_year_preview.attendance_pct != null && (
+                    <span className="inline-flex items-center gap-1 rounded bg-white px-2 py-0.5 font-medium text-civic-800 shadow-xs ring-1 ring-civic-200/80">
+                      <span className="font-bold">
+                        {candidate.five_year_preview.attendance_pct}%
+                      </span>{" "}
+                      {t("label_attendance")}
+                    </span>
+                  )}
+                </div>
+
+                <div className="pt-1">
+                  <Link
+                    href={`/candidates/${candidate.candidate_id}?tab=record`}
+                    className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 hover:text-emerald-950 underline underline-offset-2 transition"
+                  >
+                    <span>{t("btn_view_five_year_record")}</span>
+                  </Link>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-[11px] font-medium text-slate-600">
+                <Info className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+                <span>{t("label_first_time_contestant")}</span>
+              </div>
+            )}
           </div>
         )}
       </div>

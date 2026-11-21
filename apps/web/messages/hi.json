@@ -71,5 +71,19 @@
   "scan_live_camera": "लाइव कैमरे से स्कैन करें",
   "scan_capture_btn": "फोटो खींचें और स्कैन करें",
   "scan_cancel_camera": "कैमरा बंद करें",
-  "scan_camera_denied": "कैमरा अनुमति अस्वीकृत हुई या कैमरा उपलब्ध नहीं है। कृपया इसके बजाय इमेज अपलोड करें।"
+  "scan_camera_denied": "कैमरा अनुमति अस्वीकृत हुई या कैमरा उपलब्ध नहीं है। कृपया इसके बजाय इमेज अपलोड करें।",
+  "tab_form26": "फॉर्म 26 शपथ पत्र",
+  "tab_public_record": "5-वर्षीय सार्वजनिक रिकॉर्ड",
+  "record_constituency_works": "निर्वाचन क्षेत्र विकास कार्य",
+  "record_legislative_performance": "विधायी प्रदर्शन",
+  "record_form26_five_year_delta": "5-वर्षीय फॉर्म 26 तुलना",
+  "label_incumbent": "निवर्तमान जनप्रतिनिधि (इनकंबेंट)",
+  "label_first_time_contestant": "प्रथम बार प्रत्याशी • कोई पूर्व सार्वजनिक पद रिकॉर्ड नहीं",
+  "label_works_completed": "पूरे किए गए कार्य",
+  "label_attendance": "सत्र उपस्थिति",
+  "btn_view_five_year_record": "5-वर्षीय रिकॉर्ड देखें →",
+  "official_source_portal": "आधिकारिक स्रोत पोर्टल",
+  "first_time_notice_title": "पहली बार चुनाव लड़ रहे प्रत्याशी",
+  "first_time_notice_desc": "इस उम्मीदवार ने पूर्व में कोई विधायी पद धारण नहीं किया है। इसलिए पूर्व विधायी उपस्थिति, पूछे गए प्रश्न या निर्वाचन क्षेत्र विकास निधि का कोई पूर्व रिकॉर्ड उपलब्ध नहीं है।",
+  "prior_office_held_badge": "पूर्व पद"
 }

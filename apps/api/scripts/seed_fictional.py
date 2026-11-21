@@ -29,6 +29,7 @@ from app.models import (
     Disclosure,
     Election,
     LegalGlossary,
+    PublicActivityRecord,
     ReviewEvent,
 )
 from scripts.generate_fictional_pdf import (
@@ -89,6 +90,37 @@ def seed_disclosures_and_reviews(db, affidavit_id: int, disclosures_list: list) 
                 review_note=disc_def["review_note"],
             )
             db.add(review_event)
+
+
+def seed_public_records_for_candidate(db, candidate_id: int, records_list: list) -> None:
+    """Helper to idempotently seed public activity records for a candidate."""
+    for rec_def in records_list:
+        rec = db.execute(
+            select(PublicActivityRecord).where(
+                PublicActivityRecord.candidate_id == candidate_id,
+                PublicActivityRecord.record_type == rec_def["record_type"],
+                PublicActivityRecord.period_label == rec_def["period_label"],
+                PublicActivityRecord.source_name == rec_def["source_name"],
+            )
+        ).scalar_one_or_none()
+
+        if rec is None:
+            rec = PublicActivityRecord(
+                candidate_id=candidate_id,
+                record_type=rec_def["record_type"],
+                period_label=rec_def["period_label"],
+                source_name=rec_def["source_name"],
+                source_url=rec_def["source_url"],
+                structured_payload=rec_def["structured_payload"],
+                verification_status=rec_def["verification_status"],
+            )
+            db.add(rec)
+            db.flush()
+        else:
+            rec.source_url = rec_def["source_url"]
+            rec.structured_payload = rec_def["structured_payload"]
+            rec.verification_status = rec_def["verification_status"]
+            db.flush()
 
 
 def compute_sha256(file_path: Path) -> str:
@@ -232,6 +264,7 @@ def seed_database() -> dict:
                 display_name="Candidate X (Fictional Sample)",
                 party_name="Independent — Fictional",
                 is_fictional=True,
+                prior_office_held="MLA — Fictional Constituency (2019–2024)",
             )
             db.add(candidate)
             db.flush()
@@ -240,6 +273,7 @@ def seed_database() -> dict:
             candidate.display_name = "Candidate X (Fictional Sample)"
             candidate.party_name = "Independent — Fictional"
             candidate.is_fictional = True
+            candidate.prior_office_held = "MLA — Fictional Constituency (2019–2024)"
             print(f"Existing Candidate found: {candidate.display_name} (id={candidate.id})")
 
         # Step 6: Seed Affidavit
@@ -416,6 +450,41 @@ def seed_database() -> dict:
         print(f"Seeding {len(raw_disclosures)} disclosures for Candidate X...")
         seed_disclosures_and_reviews(db, affidavit.id, raw_disclosures)
 
+        # Seed Public Records for Candidate X
+        cand_x_public_records = [
+            {
+                "record_type": "constituency_works",
+                "period_label": "2019–2024",
+                "source_name": "MoSPI eSakshi (MPLADS/MLALADS)",
+                "source_url": "https://fictional.gov.in/esakshi/fc01/candidate_x_works",
+                "structured_payload": {
+                    "works_completed": 29,
+                    "works_recommended": 35,
+                    "funds_utilized": 142000000,
+                    "funds_allocated": 200000000,
+                    "top_categories": [
+                        "drinking water pipelines",
+                        "primary school classrooms",
+                    ],
+                },
+                "verification_status": "verified",
+            },
+            {
+                "record_type": "legislative_performance",
+                "period_label": "2019–2024",
+                "source_name": "PRS Legislative Research",
+                "source_url": "https://prslegislative.org/fictional/candidate_x",
+                "structured_payload": {
+                    "attendance_percentage": 74,
+                    "questions_asked": 31,
+                    "debates_participated": 12,
+                },
+                "verification_status": "verified",
+            },
+        ]
+        print(f"Seeding {len(cand_x_public_records)} public records for Candidate X...")
+        seed_public_records_for_candidate(db, candidate.id, cand_x_public_records)
+
         # Step 8: Seed Candidate Y — Kiran Rao
         cand_y_name = "Kiran Rao"
         cand_y = db.execute(
@@ -432,6 +501,7 @@ def seed_database() -> dict:
                 display_name="Kiran Rao (Fictional Sample)",
                 party_name="Civic Reform Front — Fictional",
                 is_fictional=True,
+                prior_office_held="MLA — Fictional Constituency (2019–2024)",
             )
             db.add(cand_y)
             db.flush()
@@ -440,6 +510,7 @@ def seed_database() -> dict:
             cand_y.display_name = "Kiran Rao (Fictional Sample)"
             cand_y.party_name = "Civic Reform Front — Fictional"
             cand_y.is_fictional = True
+            cand_y.prior_office_held = "MLA — Fictional Constituency (2019–2024)"
             print(f"Existing Candidate Y found: {cand_y.display_name} (id={cand_y.id})")
 
         rel_pdf_y = "fixtures/fictional/candidate_y_affidavit.pdf"
@@ -528,6 +599,69 @@ def seed_database() -> dict:
         ]
         print(f"Seeding {len(cand_y_disclosures)} disclosures for Candidate Y...")
         seed_disclosures_and_reviews(db, affidavit_y.id, cand_y_disclosures)
+
+        # Seed Public Records for Candidate Y (3 verified + 1 needs_review)
+        cand_y_public_records = [
+            {
+                "record_type": "constituency_works",
+                "period_label": "2019–2024",
+                "source_name": "MoSPI eSakshi (MPLADS/MLALADS)",
+                "source_url": "https://fictional.gov.in/esakshi/fc01/candidate_y_works",
+                "structured_payload": {
+                    "works_completed": 38,
+                    "works_recommended": 44,
+                    "funds_utilized": 184000000,
+                    "funds_allocated": 250000000,
+                    "top_categories": [
+                        "drinking water pipelines",
+                        "primary school classrooms",
+                        "stormwater drains",
+                    ],
+                },
+                "verification_status": "verified",
+            },
+            {
+                "record_type": "legislative_performance",
+                "period_label": "2019–2024",
+                "source_name": "PRS Legislative Research",
+                "source_url": "https://prslegislative.org/fictional/candidate_y",
+                "structured_payload": {
+                    "attendance_percentage": 82,
+                    "questions_asked": 47,
+                    "debates_participated": 19,
+                },
+                "verification_status": "verified",
+            },
+            {
+                "record_type": "form26_five_year_delta",
+                "period_label": "2019 vs 2024 Form 26 Declarations",
+                "source_name": "ECI Form 26 (2019 vs 2024)",
+                "source_url": "https://eci.gov.in/fictional/candidate_y_2019_form26.pdf",
+                "structured_payload": {
+                    "previous_election_year": 2019,
+                    "current_election_year": 2024,
+                    "previous_declared_assets": 4500000,
+                    "current_declared_assets": 6800000,
+                    "declared_total_assets_previous": 4500000,
+                    "declared_total_assets_current": 6800000,
+                },
+                "verification_status": "verified",
+            },
+            {
+                "record_type": "constituency_works",
+                "period_label": "2024 Supplementary Development Grant",
+                "source_name": "Self-Reported Campaign Press Release",
+                "source_url": "https://fictional.party/press/candidate_y_grant_claim",
+                "structured_payload": {
+                    "grant_name": "Fictional Urban Renewal Supplementary Grant",
+                    "claimed_amount": 50000000,
+                    "works_claimed": 6,
+                },
+                "verification_status": "needs_review",
+            },
+        ]
+        print(f"Seeding {len(cand_y_public_records)} public records for Candidate Y...")
+        seed_public_records_for_candidate(db, cand_y.id, cand_y_public_records)
 
         # Step 9: Seed Candidate Z — Ananya Sharma
         cand_z_name = "Ananya Sharma"
@@ -652,6 +786,7 @@ def seed_database() -> dict:
             "candidates": db.query(func.count(Candidate.id)).scalar(),
             "affidavits": db.query(func.count(Affidavit.id)).scalar(),
             "disclosures": db.query(func.count(Disclosure.id)).scalar(),
+            "public_activity_records": db.query(func.count(PublicActivityRecord.id)).scalar(),
             "legal_glossary": db.query(func.count(LegalGlossary.id)).scalar(),
             "review_events": db.query(func.count(ReviewEvent.id)).scalar(),
         }

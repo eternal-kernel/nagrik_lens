@@ -1,6 +1,8 @@
 from typing import List, Optional
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.schemas.public_record import FiveYearPreview
+
 
 class CandidateMatchItem(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -14,6 +16,7 @@ class CandidateMatchItem(BaseModel):
     election_name: Optional[str] = None
     confidence: float = Field(..., ge=0.0, le=1.0, description="Match confidence score between 0.0 and 1.0")
     matched_terms: List[str] = Field(default_factory=list, description="Terms that matched or contributed to score")
+    five_year_preview: Optional[FiveYearPreview] = Field(None, description="Verified 5-year public record preview")
 
 
 class PosterScanResponse(BaseModel):

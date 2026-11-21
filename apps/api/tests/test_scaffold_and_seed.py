@@ -12,8 +12,10 @@ from app.models import (
     Disclosure,
     Election,
     LegalGlossary,
+    PublicActivityRecord,
     ReviewEvent,
 )
+from app.services.public_records import render_public_record_explanations
 
 
 @pytest.fixture(scope="module")
@@ -25,24 +27,26 @@ def db_session():
 
 
 def test_table_row_counts(db_session):
-    """Verify exact expected row counts in all 7 tables for multi-candidate seed."""
+    """Verify exact expected row counts in all 8 tables for multi-candidate seed."""
     assert db_session.query(func.count(Election.id)).scalar() == 1
     assert db_session.query(func.count(Constituency.id)).scalar() == 1
     assert db_session.query(func.count(Candidate.id)).scalar() == 3
     assert db_session.query(func.count(Affidavit.id)).scalar() == 3
     assert db_session.query(func.count(Disclosure.id)).scalar() == 13
+    assert db_session.query(func.count(PublicActivityRecord.id)).scalar() == 6
     assert db_session.query(func.count(LegalGlossary.id)).scalar() == 4
     assert db_session.query(func.count(ReviewEvent.id)).scalar() == 13
 
 
 def test_candidate_properties(db_session):
-    """Verify Candidate X, Y, and Z properties, fictional flags, and constituency."""
+    """Verify Candidate X, Y, and Z properties, fictional flags, and prior office."""
     # Candidate X
     cand_x = db_session.execute(select(Candidate).where(Candidate.id == 1)).scalar_one()
     assert cand_x.name == "Candidate X"
     assert cand_x.display_name == "Candidate X (Fictional Sample)"
     assert cand_x.is_fictional is True
     assert cand_x.party_name == "Independent — Fictional"
+    assert cand_x.prior_office_held == "MLA — Fictional Constituency (2019–2024)"
     assert cand_x.constituency.code == "FC-01"
     assert cand_x.constituency.election.name.startswith("Telangana Legislative Assembly")
 
@@ -52,6 +56,7 @@ def test_candidate_properties(db_session):
     assert cand_y.display_name == "Kiran Rao (Fictional Sample)"
     assert cand_y.is_fictional is True
     assert cand_y.party_name == "Civic Reform Front — Fictional"
+    assert cand_y.prior_office_held == "MLA — Fictional Constituency (2019–2024)"
     assert cand_y.constituency_id == cand_x.constituency_id
 
     # Candidate Z
@@ -60,6 +65,7 @@ def test_candidate_properties(db_session):
     assert cand_z.display_name == "Ananya Sharma (Fictional Sample)"
     assert cand_z.is_fictional is True
     assert cand_z.party_name == "Progressive Alliance — Fictional"
+    assert cand_z.prior_office_held is None
     assert cand_z.constituency_id == cand_x.constituency_id
 
 
@@ -191,3 +197,59 @@ def test_pdf_fixture_properties():
     assert "IPC 341" in p4_text
     assert "CASES OF CONVICTION" in p4_text
     doc.close()
+
+
+def test_public_activity_records_and_explanations(db_session):
+    """Verify Candidate public activity records, verification statuses, and explanations."""
+    all_records = db_session.execute(select(PublicActivityRecord)).scalars().all()
+    assert len(all_records) == 6
+
+    # Breakdown by candidate
+    cand_x_recs = [r for r in all_records if r.candidate_id == 1]
+    cand_y_recs = [r for r in all_records if r.candidate_id == 2]
+    cand_z_recs = [r for r in all_records if r.candidate_id == 3]
+
+    assert len(cand_x_recs) == 2
+    assert all(r.verification_status == "verified" for r in cand_x_recs)
+
+    assert len(cand_y_recs) == 4
+    verified_y = [r for r in cand_y_recs if r.verification_status == "verified"]
+    unverified_y = [r for r in cand_y_recs if r.verification_status == "needs_review"]
+    assert len(verified_y) == 3
+    assert len(unverified_y) == 1
+
+    assert len(cand_z_recs) == 0
+
+    # Test deterministic explanation generation for all records
+    evaluative_terms = ["good", "bad", "corrupt", "clean", "poor", "high performance", "low performance"]
+    for rec in all_records:
+        exps = render_public_record_explanations(rec)
+        assert "en" in exps and "te" in exps and "hi" in exps
+        assert len(exps["en"]) > 20
+        assert len(exps["te"]) > 20
+        assert len(exps["hi"]) > 20
+
+        en_lower = exps["en"].lower()
+        for term in evaluative_terms:
+            assert term not in en_lower, f"Found evaluative term '{term}' in explanation: {exps['en']}"
+
+    # Specific content checks
+    works_x = next(r for r in cand_x_recs if r.record_type == "constituency_works")
+    x_exps = render_public_record_explanations(works_x)
+    assert "29 works were completed out of 35" in x_exps["en"]
+    assert "₹14.2 crore" in x_exps["en"]
+    assert "MoSPI eSakshi (MPLADS/MLALADS)" in x_exps["en"]
+
+    leg_x = next(r for r in cand_x_recs if r.record_type == "legislative_performance")
+    x_leg_exps = render_public_record_explanations(leg_x)
+    assert "74% session attendance" in x_leg_exps["en"]
+    assert "31 questions" in x_leg_exps["en"]
+    assert "12 debates" in x_leg_exps["en"]
+
+    delta_y = next(r for r in cand_y_recs if r.record_type == "form26_five_year_delta")
+    y_delta_exps = render_public_record_explanations(delta_y)
+    assert "₹45 lakh" in y_delta_exps["en"]
+    assert "₹68 lakh" in y_delta_exps["en"]
+    assert "2019" in y_delta_exps["en"]
+    assert "2024" in y_delta_exps["en"]
+

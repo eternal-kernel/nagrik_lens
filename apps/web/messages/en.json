@@ -71,5 +71,19 @@
   "scan_live_camera": "Scan with Camera",
   "scan_capture_btn": "Capture & Scan",
   "scan_cancel_camera": "Cancel Camera",
-  "scan_camera_denied": "Camera permission was denied or is unavailable. You can still upload a photo directly."
+  "scan_camera_denied": "Camera permission was denied or is unavailable. You can still upload a photo directly.",
+  "tab_form26": "Form 26 Affidavit",
+  "tab_public_record": "5-Year Public Record",
+  "record_constituency_works": "Constituency Development Works",
+  "record_legislative_performance": "Legislative Performance",
+  "record_form26_five_year_delta": "5-Year Form 26 Comparison",
+  "label_incumbent": "Incumbent",
+  "label_first_time_contestant": "First-Time Contestant • No Prior Public Office Record",
+  "label_works_completed": "Works Completed",
+  "label_attendance": "Attendance",
+  "btn_view_five_year_record": "View 5-Year Record →",
+  "official_source_portal": "Official Source Portal",
+  "first_time_notice_title": "First-Time Election Contestant",
+  "first_time_notice_desc": "This candidate has not previously held legislative office in this jurisdiction. There are no prior legislative attendance, question, or constituency development fund records.",
+  "prior_office_held_badge": "Prior Office"
 }

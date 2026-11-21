@@ -27,6 +27,7 @@ export interface CandidateSummary {
   display_name: string;
   party_name: string;
   is_fictional: boolean;
+  prior_office_held?: string | null;
   created_at: string;
   constituency_name?: string | null;
   election_name?: string | null;
@@ -45,6 +46,30 @@ export interface AffidavitSummary {
   created_at: string;
 }
 
+export interface PublicActivityRecord {
+  id: number;
+  record_type: string;
+  period_label: string;
+  source_name: string;
+  source_url: string;
+  structured_payload: Record<string, any>;
+  explanations: {
+    en: string;
+    te: string;
+    hi: string;
+  };
+  verification_status: string;
+}
+
+export interface FiveYearPreview {
+  is_incumbent: boolean;
+  prior_office_held?: string | null;
+  works_completed?: number | null;
+  works_recommended?: number | null;
+  attendance_pct?: number | null;
+  verified_records_count: number;
+}
+
 export interface CandidateDetail {
   id: number;
   constituency_id: number;
@@ -52,10 +77,12 @@ export interface CandidateDetail {
   display_name: string;
   party_name: string;
   is_fictional: boolean;
+  prior_office_held?: string | null;
   created_at: string;
   constituency: Constituency;
   election?: Election | null;
   affidavits: AffidavitSummary[];
+  public_records?: PublicActivityRecord[];
 }
 
 export interface LegalGlossaryItem {
@@ -149,6 +176,7 @@ export interface CandidateMatchItem {
   election_name?: string | null;
   confidence: number;
   matched_terms: string[];
+  five_year_preview?: FiveYearPreview | null;
 }
 
 export interface PosterScanResponse {

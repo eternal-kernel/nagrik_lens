@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.models.election import Candidate, Constituency, Election
 from app.schemas.poster import CandidateMatchItem, PosterScanResponse
+from app.services.public_records import build_five_year_preview
 
 # Campaign noise words and honorifics commonly found on Indian election posters
 NOISE_WORDS = {
@@ -215,6 +216,7 @@ def match_candidates_from_ocr(
         total_confidence = round(total_confidence, 2)
 
         if total_confidence >= min_confidence:
+            preview = build_five_year_preview(cand, db)
             matches.append(
                 CandidateMatchItem(
                     candidate_id=cand.id,
@@ -226,6 +228,7 @@ def match_candidates_from_ocr(
                     election_name=const.election.name if const and const.election else None,
                     confidence=total_confidence,
                     matched_terms=matched_terms,
+                    five_year_preview=preview,
                 )
             )
 

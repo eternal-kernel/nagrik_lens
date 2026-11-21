@@ -1,9 +1,13 @@
 from datetime import datetime
-from typing import List
+from typing import List, Optional, TYPE_CHECKING
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
+
+if TYPE_CHECKING:
+    from app.models.affidavit import Affidavit
+    from app.models.public_record import PublicActivityRecord
 
 
 class Election(Base):
@@ -59,6 +63,7 @@ class Candidate(Base):
     display_name: Mapped[str] = mapped_column(String(255), nullable=False)
     party_name: Mapped[str] = mapped_column(String(255), nullable=False)
     is_fictional: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    prior_office_held: Mapped[Optional[str]] = mapped_column(String(255), nullable=True, default=None)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -67,6 +72,9 @@ class Candidate(Base):
     constituency: Mapped["Constituency"] = relationship("Constituency", back_populates="candidates")
     affidavits: Mapped[List["Affidavit"]] = relationship(
         "Affidavit", back_populates="candidate", cascade="all, delete-orphan"
+    )
+    public_activity_records: Mapped[List["PublicActivityRecord"]] = relationship(
+        "PublicActivityRecord", back_populates="candidate", cascade="all, delete-orphan"
     )
 
     def __repr__(self) -> str:

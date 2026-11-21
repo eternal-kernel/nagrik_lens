@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, Suspense } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { useLanguage } from "@/lib/language-context";
 import {
   getCandidateDetail,
@@ -10,6 +10,7 @@ import {
   getAffidavitPdfUrl,
   CandidateDetail,
   RenderedDisclosure,
+  PublicActivityRecord,
 } from "@/lib/api";
 import PdfViewer from "@/components/PdfViewer";
 import VoiceButton from "@/components/VoiceButton";
@@ -29,13 +30,20 @@ import {
   Scale,
   Sparkles,
   ExternalLink,
+  Info,
 } from "lucide-react";
 
-export default function CandidateAffidavitPage() {
+function CandidateAffidavitContent() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const candidateId = params.id as string;
+  const tabParam = searchParams.get("tab");
+
   const { lang, t } = useLanguage();
 
+  const [activeTab, setActiveTab] = useState<"affidavit" | "record">(
+    tabParam === "record" ? "record" : "affidavit"
+  );
   const [candidate, setCandidate] = useState<CandidateDetail | null>(null);
   const [disclosures, setDisclosures] = useState<RenderedDisclosure[]>([]);
   const [loading, setLoading] = useState(true);
@@ -45,6 +53,15 @@ export default function CandidateAffidavitPage() {
   const [currentPdfPage, setCurrentPdfPage] = useState<number>(1);
   const [activeInspectingBadge, setActiveInspectingBadge] = useState<string | null>(null);
   const [activeDisclosureId, setActiveDisclosureId] = useState<number | null>(null);
+
+  // Sync tab with URL search parameter if changed
+  useEffect(() => {
+    if (tabParam === "record") {
+      setActiveTab("record");
+    } else if (tabParam === "affidavit") {
+      setActiveTab("affidavit");
+    }
+  }, [tabParam]);
 
   // Load candidate details
   useEffect(() => {
@@ -99,7 +116,7 @@ export default function CandidateAffidavitPage() {
   const affidavit = candidate?.affidavits?.[0];
   const pdfUrl = affidavit ? getAffidavitPdfUrl(affidavit.id) : "";
 
-  // Category Icon & Label mapping
+  // Category Icon & Label mapping for Form 26 Disclosures
   const getCategoryMeta = (category: string) => {
     switch (category) {
       case "education":
@@ -142,6 +159,36 @@ export default function CandidateAffidavitPage() {
         return {
           label: category,
           icon: FileText,
+          color: "text-civic-700 bg-civic-50 border-civic-200",
+        };
+    }
+  };
+
+  // Record Type Icon & Label mapping for 5-Year Public Activity Records
+  const getPublicRecordMeta = (recordType: string) => {
+    switch (recordType) {
+      case "constituency_works":
+        return {
+          label: t("record_constituency_works"),
+          icon: Building2,
+          color: "text-indigo-700 bg-indigo-50 border-indigo-200",
+        };
+      case "legislative_performance":
+        return {
+          label: t("record_legislative_performance"),
+          icon: Scale,
+          color: "text-blue-700 bg-blue-50 border-blue-200",
+        };
+      case "form26_five_year_delta":
+        return {
+          label: t("record_form26_five_year_delta"),
+          icon: Coins,
+          color: "text-emerald-700 bg-emerald-50 border-emerald-200",
+        };
+      default:
+        return {
+          label: recordType,
+          icon: Landmark,
           color: "text-civic-700 bg-civic-50 border-civic-200",
         };
     }
@@ -208,6 +255,8 @@ export default function CandidateAffidavitPage() {
     );
   }
 
+  const verifiedPublicRecords = candidate.public_records || [];
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
       {/* Fictional Sample Banner */}
@@ -240,8 +289,8 @@ export default function CandidateAffidavitPage() {
         </div>
 
         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end border-t border-civic-100 pt-4">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
+          <div className="space-y-1.5">
+            <div className="flex flex-wrap items-center gap-2">
               <span className="rounded bg-civic-100 px-2.5 py-0.5 text-xs font-semibold text-civic-700 uppercase tracking-wider">
                 {candidate.party_name}
               </span>
@@ -249,6 +298,14 @@ export default function CandidateAffidavitPage() {
                 <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
                 {t("status_verified")}
               </span>
+
+              {/* Incumbent Prior Office Badge */}
+              {candidate.prior_office_held && (
+                <span className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-800">
+                  <Landmark className="h-3.5 w-3.5 text-slate-600" />
+                  <span>{candidate.prior_office_held}</span>
+                </span>
+              )}
             </div>
             <h1 className="text-2xl font-extrabold tracking-tight text-civic-900 sm:text-3xl">
               {candidate.display_name}
@@ -272,7 +329,7 @@ export default function CandidateAffidavitPage() {
               <FileText className="h-4 w-4 text-civic-700" />
               <span>{t("pdf_panel_title")}</span>
             </h2>
-            <span className="text-[11px] text-civic-500">
+            <span className="text-[11px] text-civic-500 font-medium">
               Official ECI Form 26
             </span>
           </div>
@@ -293,92 +350,256 @@ export default function CandidateAffidavitPage() {
           </div>
         </section>
 
-        {/* RIGHT PANEL: Verified Plain-Language Explanations */}
+        {/* RIGHT PANEL: Tabbed View (Form 26 Affidavit & 5-Year Public Record) */}
         <section className="lg:col-span-6 space-y-4">
-          <div className="border-b border-civic-200 pb-3">
-            <h2 className="text-lg font-bold tracking-tight text-civic-900">
-              {t("explanations_panel_title")}
-            </h2>
-            <p className="text-xs text-civic-600">
-              {t("explanations_panel_subtitle")}
-            </p>
-          </div>
+          {/* Clean 2-Tab Switcher */}
+          <div className="flex items-center gap-2 border-b border-civic-200 pb-3">
+            <button
+              type="button"
+              onClick={() => setActiveTab("affidavit")}
+              className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs sm:text-sm font-bold transition-all ${
+                activeTab === "affidavit"
+                  ? "bg-civic-900 text-white shadow-sm"
+                  : "bg-civic-100 text-civic-700 hover:bg-civic-200"
+              }`}
+            >
+              <FileText className="h-4 w-4" />
+              <span>{t("tab_form26")}</span>
+              <span
+                className={`ml-1 rounded-full px-2 py-0.5 text-[10px] sm:text-[11px] font-semibold ${
+                  activeTab === "affidavit"
+                    ? "bg-civic-800 text-civic-200"
+                    : "bg-civic-200 text-civic-700"
+                }`}
+              >
+                {disclosures.length}
+              </span>
+            </button>
 
-          {/* Disclosure Cards List */}
-          <div className="space-y-4">
-            {disclosures.map((disc) => {
-              const meta = getCategoryMeta(disc.category);
-              const CategoryIcon = meta.icon;
-              const isSelected = activeDisclosureId === disc.id;
-
-              return (
-                <article
-                  key={disc.id}
-                  className={`relative rounded-xl border bg-white p-5 shadow-sm transition-all duration-200 ${
-                    isSelected
-                      ? "border-civic-800 ring-2 ring-civic-800/10 shadow-md"
-                      : "border-civic-200 hover:border-civic-300"
+            <button
+              type="button"
+              onClick={() => setActiveTab("record")}
+              className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs sm:text-sm font-bold transition-all ${
+                activeTab === "record"
+                  ? "bg-civic-900 text-white shadow-sm"
+                  : "bg-civic-100 text-civic-700 hover:bg-civic-200"
+              }`}
+            >
+              <Landmark className="h-4 w-4" />
+              <span>{t("tab_public_record")}</span>
+              {verifiedPublicRecords.length > 0 && (
+                <span
+                  className={`ml-1 rounded-full px-2 py-0.5 text-[10px] sm:text-[11px] font-semibold ${
+                    activeTab === "record"
+                      ? "bg-civic-800 text-civic-200"
+                      : "bg-civic-200 text-civic-700"
                   }`}
                 >
-                  {/* Card Header: Category & Subject Badge */}
-                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <div className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-bold ${meta.color}`}>
-                        <CategoryIcon className="h-3.5 w-3.5" />
-                        <span>{meta.label}</span>
-                      </div>
-                      <span className="rounded-md bg-civic-100 px-2 py-0.5 text-xs font-semibold text-civic-700">
-                        {getSubjectLabel(disc.subject_type)}
-                      </span>
-                    </div>
+                  {verifiedPublicRecords.length}
+                </span>
+              )}
+            </button>
+          </div>
 
-                    {/* Voice "Listen" Button */}
-                    <VoiceButton text={disc.explanation} lang={lang} />
-                  </div>
+          {/* TAB 1 CONTENT: Form 26 Affidavit Disclosures */}
+          {activeTab === "affidavit" && (
+            <div className="space-y-4">
+              <div className="border-b border-civic-100 pb-2">
+                <h2 className="text-base font-bold tracking-tight text-civic-900 sm:text-lg">
+                  {t("explanations_panel_title")}
+                </h2>
+                <p className="text-xs text-civic-600">
+                  {t("explanations_panel_subtitle")}
+                </p>
+              </div>
 
-                  {/* Verified Plain-Language Explanation */}
-                  <div className="text-sm leading-relaxed text-civic-900 font-normal">
-                    {disc.explanation}
-                  </div>
+              {/* Disclosure Cards List */}
+              <div className="space-y-4">
+                {disclosures.map((disc) => {
+                  const meta = getCategoryMeta(disc.category);
+                  const CategoryIcon = meta.icon;
+                  const isSelected = activeDisclosureId === disc.id;
 
-                  {/* Expandable Legal Glossary (For Pending Criminal Cases) */}
-                  {disc.glossary_items && disc.glossary_items.length > 0 && (
-                    <div className="mt-4 rounded-lg border border-blue-100 bg-blue-50/50 p-3">
-                      <div className="mb-2 text-[11px] font-bold tracking-wide text-blue-900 uppercase">
-                        {t("legal_glossary_heading")}
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {disc.glossary_items.map((item) => (
-                          <LegalGlossaryPill key={item.code_key} item={item} />
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Card Footer: Page Jump / Inspect Source Button */}
-                  <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-civic-100 pt-3">
-                    <button
-                      onClick={() => handleInspectPage(disc.page_number, disc.category, disc.id)}
-                      className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
-                        isSelected && currentPdfPage === disc.page_number
-                          ? "bg-civic-900 text-white"
-                          : "border border-civic-200 bg-civic-50 text-civic-800 hover:bg-civic-100"
+                  return (
+                    <article
+                      key={disc.id}
+                      className={`relative rounded-xl border bg-white p-5 shadow-sm transition-all duration-200 ${
+                        isSelected
+                          ? "border-civic-800 ring-2 ring-civic-800/10 shadow-md"
+                          : "border-civic-200 hover:border-civic-300"
                       }`}
                     >
-                      <FileText className="h-3.5 w-3.5" />
-                      <span>{t("btn_inspect_page", { page: disc.page_number })}</span>
-                    </button>
+                      {/* Card Header: Category & Subject Badge */}
+                      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <div
+                            className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-bold ${meta.color}`}
+                          >
+                            <CategoryIcon className="h-3.5 w-3.5" />
+                            <span>{meta.label}</span>
+                          </div>
+                          <span className="rounded-md bg-civic-100 px-2 py-0.5 text-xs font-semibold text-civic-700">
+                            {getSubjectLabel(disc.subject_type)}
+                          </span>
+                        </div>
 
-                    <span className="text-[11px] text-civic-500 font-medium">
-                      Sworn declaration on Page {disc.page_number}
-                    </span>
+                        {/* Voice "Listen" Button */}
+                        <VoiceButton text={disc.explanation} lang={lang} />
+                      </div>
+
+                      {/* Verified Plain-Language Explanation */}
+                      <div className="text-sm leading-relaxed text-civic-900 font-normal">
+                        {disc.explanation}
+                      </div>
+
+                      {/* Expandable Legal Glossary (For Pending Criminal Cases) */}
+                      {disc.glossary_items && disc.glossary_items.length > 0 && (
+                        <div className="mt-4 rounded-lg border border-blue-100 bg-blue-50/50 p-3">
+                          <div className="mb-2 text-[11px] font-bold tracking-wide text-blue-900 uppercase">
+                            {t("legal_glossary_heading")}
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {disc.glossary_items.map((item) => (
+                              <LegalGlossaryPill key={item.code_key} item={item} />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Card Footer: Page Jump / Inspect Source Button */}
+                      <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-civic-100 pt-3">
+                        <button
+                          onClick={() => handleInspectPage(disc.page_number, disc.category, disc.id)}
+                          className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+                            isSelected && currentPdfPage === disc.page_number
+                              ? "bg-civic-900 text-white"
+                              : "border border-civic-200 bg-civic-50 text-civic-800 hover:bg-civic-100"
+                          }`}
+                        >
+                          <FileText className="h-3.5 w-3.5" />
+                          <span>{t("btn_inspect_page", { page: disc.page_number })}</span>
+                        </button>
+
+                        <span className="text-[11px] text-civic-500 font-medium">
+                          Sworn declaration on Page {disc.page_number}
+                        </span>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* TAB 2 CONTENT: 5-Year Public Record */}
+          {activeTab === "record" && (
+            <div className="space-y-4">
+              <div className="border-b border-civic-100 pb-2">
+                <h2 className="text-base font-bold tracking-tight text-civic-900 sm:text-lg">
+                  {t("tab_public_record")}
+                </h2>
+                <p className="text-xs text-civic-600">
+                  Official, non-partisan, source-linked 5-year public activity records verified against official government archives.
+                </p>
+              </div>
+
+              {/* Case A: First-time contestant or zero public records */}
+              {(!candidate.prior_office_held || verifiedPublicRecords.length === 0) && (
+                <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-500">
+                    <Info className="h-6 w-6 text-slate-600" />
                   </div>
-                </article>
-              );
-            })}
-          </div>
+                  <h3 className="mt-4 text-base font-bold text-slate-900">
+                    {t("first_time_notice_title")}
+                  </h3>
+                  <p className="mx-auto mt-2 max-w-md text-xs leading-relaxed text-slate-600">
+                    {t("first_time_notice_desc")}
+                  </p>
+                </div>
+              )}
+
+              {/* Case B: Verified Public Activity Records List */}
+              {verifiedPublicRecords.length > 0 && (
+                <div className="space-y-4">
+                  {verifiedPublicRecords.map((rec) => {
+                    const meta = getPublicRecordMeta(rec.record_type);
+                    const RecordIcon = meta.icon;
+                    const explanationText =
+                      rec.explanations[lang as "en" | "te" | "hi"] || rec.explanations.en || "";
+
+                    return (
+                      <article
+                        key={rec.id}
+                        className="relative rounded-xl border border-civic-200 bg-white p-5 shadow-sm transition-all duration-200 hover:border-civic-300"
+                      >
+                        {/* Card Header: Category & Period Badge */}
+                        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <div
+                              className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-bold ${meta.color}`}
+                            >
+                              <RecordIcon className="h-3.5 w-3.5" />
+                              <span>{meta.label}</span>
+                            </div>
+                            <span className="rounded-md bg-civic-100 px-2 py-0.5 text-xs font-semibold text-civic-700">
+                              {rec.period_label}
+                            </span>
+                            <span className="inline-flex items-center gap-1 rounded bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-800 border border-emerald-200">
+                              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                              <span>{t("status_verified")}</span>
+                            </span>
+                          </div>
+
+                          {/* Voice "Listen" Button reading verified record explanation */}
+                          <VoiceButton text={explanationText} lang={lang} />
+                        </div>
+
+                        {/* Plain-Language Explanation */}
+                        <div className="text-sm leading-relaxed text-civic-900 font-normal">
+                          {explanationText}
+                        </div>
+
+                        {/* Card Footer: Source attribution and external portal link */}
+                        <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-civic-100 pt-3">
+                          <span className="text-[11px] text-civic-500 font-medium">
+                            Source: <span className="font-semibold text-civic-700">{rec.source_name}</span>
+                          </span>
+
+                          {rec.source_url && (
+                            <a
+                              href={rec.source_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-700 hover:text-indigo-900 hover:underline"
+                            >
+                              <span>{t("official_source_portal")}</span>
+                              <ExternalLink className="h-3 w-3" />
+                            </a>
+                          )}
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
         </section>
       </div>
     </div>
+  );
+}
+
+export default function CandidateAffidavitPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-[50vh] items-center justify-center p-8 text-civic-600">
+          <p className="text-sm font-medium animate-pulse">Loading candidate data...</p>
+        </div>
+      }
+    >
+      <CandidateAffidavitContent />
+    </Suspense>
   );
 }
